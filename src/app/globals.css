@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0f766e;
+  --color-brand-soft: #ccfbf1;
+  --color-shared: #2563eb;
+  --color-personal: #9333ea;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1120;
+    --card: #131c2e;
+    --fg: #e2e8f0;
+    --muted: #94a3b8;
+    --line: #1e293b;
+  }
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 16px; /* evita el zoom automático en iPhone */
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  min-height: 44px;
+  transition: transform 0.05s;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+.btn-primary {
+  background: var(--color-brand);
+  color: white;
+}
+.btn-ghost {
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.875rem;
+  min-height: 36px;
+}
+.chip[data-active="true"] {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: white;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
