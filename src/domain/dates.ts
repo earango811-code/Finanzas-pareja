@@ -13,6 +13,12 @@ export function currentMonth(now: Date = new Date()): string {
   return todayBogota(now).slice(0, 7);
 }
 
+/** Mes que se muestra por defecto: el actual, o el de inicio si todavía no ha llegado. */
+export function defaultMonth(startMonth: string | null, now: Date = new Date()): string {
+  const current = currentMonth(now);
+  return startMonth && current < startMonth ? startMonth : current;
+}
+
 /** "2026-10" → { start: "2026-10-01", end: "2026-11-01" } (end exclusivo). */
 export function monthRange(month: string): { start: string; end: string } {
   const [y, m] = month.split("-").map(Number);

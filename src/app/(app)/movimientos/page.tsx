@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { TxActions } from "@/components/tx-actions";
-import { currentMonth, isValidMonth, monthRange, shortDate } from "@/domain/dates";
+import { currentMonth, defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/dates";
 import { formatCOP } from "@/domain/money";
 import { pocketFitsTx } from "@/domain/pockets";
 import { KIND_LABEL } from "@/domain/types";
@@ -20,18 +20,17 @@ const FILTERS = [
 
 export default async function MovimientosPage({ searchParams }: { searchParams: Promise<{ mes?: string; f?: string }> }) {
   const sp = await searchParams;
-  const month = isValidMonth(sp.mes) ? sp.mes : currentMonth();
+  const month = isValidMonth(sp.mes) ? sp.mes : defaultMonth((await getHousehold()).household.start_month);
   const filter = FILTERS.some((f) => f.key === sp.f) ? sp.f! : "todos";
   const ctx = await getHousehold();
   const { supabase, me, allCategories, accounts } = ctx;
-  const { start, end } = monthRange(month);
+
 
   let q = supabase
     .from("transactions")
     .select(TX_COLUMNS)
     .eq("household_id", me.household_id)
-    .gte("occurred_on", start)
-    .lt("occurred_on", end)
+    .eq("month", month)
     .order("occurred_on", { ascending: false })
     .order("created_at", { ascending: false });
   if (filter === "ignorado") q = q.eq("status", "ignorado");
@@ -85,6 +84,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                     {t.account_id && ` · ${acctName.get(t.account_id)}`}
                   </p>
                   {t.pocket_id && <p className="text-xs text-[var(--color-brand)]">🐷 Pagado desde {pocketName.get(t.pocket_id) ?? "bolsillo"}</p>}
+                  {t.budget_month && <p className="text-xs text-amber-700">📅 Fecha real {shortDate(t.occurred_on)} · cuenta en {monthLabel(t.budget_month)}</p>}
                 </div>
                 <p className={`tabular text-sm font-semibold ${t.kind === "ingreso" ? "text-emerald-600" : ""}`}>
                   {t.kind === "ingreso" ? "+" : ""}
@@ -95,6 +95,8 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                   canReopen={t.kind !== "liquidacion"}
                   canDelete={t.source === "manual" || t.source === "recurrente"}
                   currentPocketId={t.pocket_id}
+                  dateMonth={t.kind === "liquidacion" ? undefined : t.occurred_on.slice(0, 7)}
+                  budgetMonth={t.budget_month}
                   pockets={
                     t.status === "identificado" && (t.kind === "gasto" || t.kind === "ingreso")
                       ? activePockets.filter((p) => pocketFitsTx(p.owner_member_id, t))

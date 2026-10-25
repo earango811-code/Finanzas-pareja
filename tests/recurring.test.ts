@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultMonth } from "@/domain/dates";
 import {
   addMonths,
   dueOccurrences,
@@ -76,6 +77,17 @@ describe("firstOnOrAfter", () => {
     expect(firstOnOrAfter("mensual", "2026-01-10", "2026-10-25")).toBe("2026-11-10");
     expect(firstOnOrAfter("mensual", "2026-01-10", "2026-10-10")).toBe("2026-10-10");
     expect(firstOnOrAfter("mensual", "2026-12-01", "2026-10-25")).toBe("2026-12-01");
+  });
+});
+
+describe("defaultMonth", () => {
+  const oct25 = new Date("2026-10-25T15:00:00Z");
+  it("si todavía no llega el mes de inicio, muestra el mes de inicio", () => {
+    expect(defaultMonth("2026-11", oct25)).toBe("2026-11");
+  });
+  it("después del inicio, o sin inicio, muestra el mes actual", () => {
+    expect(defaultMonth("2026-09", oct25)).toBe("2026-10");
+    expect(defaultMonth(null, oct25)).toBe("2026-10");
   });
 });
 

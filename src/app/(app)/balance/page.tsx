@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { SettleButton } from "@/components/settle-button";
-import { currentMonth, isValidMonth, monthRange, todayBogota } from "@/domain/dates";
+import { currentMonth, defaultMonth, isValidMonth, monthRange, todayBogota } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { computeSettlement, splitShares } from "@/domain/split";
 import { getHousehold, memberName } from "@/lib/household";
@@ -10,7 +10,7 @@ export const metadata = { title: "Balance" };
 
 export default async function BalancePage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const sp = await searchParams;
-  const month = isValidMonth(sp.mes) ? sp.mes : currentMonth();
+  const month = isValidMonth(sp.mes) ? sp.mes : defaultMonth((await getHousehold()).household.start_month);
   const ctx = await getHousehold();
   const { members } = ctx;
   const { txs, pendingCount } = await loadMonth(ctx, month);

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { buildBudgetRows, summarizeGroups, type BudgetRow } from "@/domain/budget";
-import { currentMonth, isValidMonth } from "@/domain/dates";
+import { currentMonth, defaultMonth, isValidMonth, monthLabel } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
 import { getHousehold } from "@/lib/household";
@@ -17,7 +17,7 @@ const BAR: Record<BudgetRow["alert"], string> = {
 
 export default async function PresupuestoPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const sp = await searchParams;
-  const month = isValidMonth(sp.mes) ? sp.mes : currentMonth();
+  const month = isValidMonth(sp.mes) ? sp.mes : defaultMonth((await getHousehold()).household.start_month);
   const ctx = await getHousehold();
   const { me, members, household, categories } = ctx;
   const view = members.some((m) => m.id === sp.vista) ? sp.vista! : "compartido";
@@ -84,6 +84,15 @@ export default async function PresupuestoPage({ searchParams }: { searchParams: 
       </div>
 
       <div className="flex flex-col gap-4 px-4">
+        {household.start_month && month < household.start_month && (
+          <Link
+            href={`/presupuesto?mes=${household.start_month}`}
+            className="card block border-sky-200 bg-sky-50 p-3 text-sm text-sky-900"
+          >
+            Empezaron a usar la app en <span className="capitalize">{monthLabel(household.start_month)}</span>: este mes es
+            anterior y no se lleva presupuesto. Ver <span className="capitalize">{monthLabel(household.start_month)}</span> →
+          </Link>
+        )}
         {pendingCount > 0 && (
           <Link href="/pendientes" className="card block border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             Hay {pendingCount} pendientes este mes que todavía no cuentan aquí →

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteManualTransaction, reopenTransaction, setTransactionPocket } from "@/app/(app)/actions";
+import { deleteManualTransaction, reopenTransaction, setBudgetMonth, setTransactionPocket } from "@/app/(app)/actions";
+import { monthLabel, shiftMonth } from "@/domain/dates";
 
 export function TxActions({
   id,
@@ -9,6 +10,8 @@ export function TxActions({
   canDelete,
   pockets = [],
   currentPocketId = null,
+  dateMonth,
+  budgetMonth = null,
 }: {
   id: string;
   canReopen: boolean;
@@ -16,11 +19,14 @@ export function TxActions({
   /** Bolsillos que sirven para este movimiento (mismo ámbito y dueño). */
   pockets?: { id: string; name: string }[];
   currentPocketId?: string | null;
+  /** Mes de la fecha real (YYYY-MM) y mes del presupuesto si lo movieron. */
+  dateMonth?: string;
+  budgetMonth?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  if (!canReopen && !canDelete && pockets.length === 0 && !currentPocketId) return null;
+  if (!canReopen && !canDelete && !dateMonth && pockets.length === 0 && !currentPocketId) return null;
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -56,6 +62,27 @@ export function TxActions({
             >
               Quitar del bolsillo (vuelve al presupuesto)
             </button>
+          )}
+          {dateMonth && (
+            <>
+              {[shiftMonth(budgetMonth ?? dateMonth, 1), shiftMonth(budgetMonth ?? dateMonth, -1)]
+                .filter((m) => m !== (budgetMonth ?? dateMonth))
+                .map((m) => (
+                  <button
+                    key={m}
+                    className="rounded-lg px-3 py-2 text-left hover:bg-[var(--bg)]"
+                    disabled={busy}
+                    onClick={() => act(() => setBudgetMonth(id, m))}
+                  >
+                    📅 Contar en {monthLabel(m)}
+                  </button>
+                ))}
+              {budgetMonth && (
+                <button className="rounded-lg px-3 py-2 text-left hover:bg-[var(--bg)]" disabled={busy} onClick={() => act(() => setBudgetMonth(id, null))}>
+                  📅 Volver a {monthLabel(dateMonth)}
+                </button>
+              )}
+            </>
           )}
           {canReopen && (
             <button className="rounded-lg px-3 py-2 text-left hover:bg-[var(--bg)]" disabled={busy} onClick={() => act(() => reopenTransaction(id))}>

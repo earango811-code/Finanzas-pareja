@@ -48,6 +48,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    4. `20261025000004_ingesta_correo.sql`
    5. `20261025000005_pin.sql`
    6. `20261025000006_bolsillos.sql`
+   7. `20261025000007_mes_presupuesto.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.

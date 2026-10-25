@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { todayBogota } from "@/domain/dates";
+import { monthLabel, todayBogota } from "@/domain/dates";
 import { pocketFitsTx } from "@/domain/pockets";
 import { firstOccurrence, firstOnOrAfter, type Frequency } from "@/domain/recurring";
 import { rulePatternFor } from "@/domain/rules";
@@ -823,6 +823,28 @@ export async function deletePocketMovement(id: string): Promise<ActionResult> {
     if (error) throw new Error(error.message);
     refresh();
     return { ok: true, message: "Movimiento eliminado" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/**
+ * Cuenta un movimiento en otro mes del presupuesto (ej. una compra del 25 de octubre
+ * que pertenece a noviembre). null = vuelve al mes de su fecha. La fecha real no cambia.
+ */
+export async function setBudgetMonth(txId: string, month: string | null): Promise<ActionResult> {
+  try {
+    const id = uuid.parse(txId);
+    const m = month === null ? null : z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mes inválido").parse(month);
+    const { supabase } = await getHousehold();
+    const { data: tx } = await supabase.from("transactions").select("occurred_on").eq("id", id).single<{ occurred_on: string }>();
+    if (!tx) throw new Error("Movimiento no encontrado");
+    // Si eligen el mismo mes de la fecha, se guarda como "sin mover"
+    const value = m && m !== tx.occurred_on.slice(0, 7) ? m : null;
+    const { error } = await supabase.from("transactions").update({ budget_month: value }).eq("id", id);
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: value ? `Ahora cuenta en ${monthLabel(value)}` : "Vuelve a contar en el mes de su fecha" };
   } catch (e) {
     return fail(e);
   }

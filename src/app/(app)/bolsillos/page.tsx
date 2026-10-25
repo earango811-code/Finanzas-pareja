@@ -15,7 +15,9 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
   // Por defecto se ofrece pasar el sobrante del mes anterior (ya cerrado)
   const leftoverMonth = isValidMonth(sp.mes) ? sp.mes : shiftMonth(currentMonth(), -1);
   const ctx = await getHousehold();
-  const { supabase, me, members, categories } = ctx;
+  const { supabase, me, members, categories, household } = ctx;
+  // Antes del mes en que empezaron a usar la app no hay sobrante real que pasar
+  const beforeStart = !!household.start_month && leftoverMonth < household.start_month;
 
   const [pocketsRes, movementsRes, txRes, monthData] = await Promise.all([
     supabase.from("pockets").select("*").eq("household_id", me.household_id).order("sort_order").order("created_at").returns<PocketRow[]>(),
@@ -77,7 +79,7 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
       <PageHeader title="Bolsillos" />
       <PocketsManager
         pockets={pockets}
-        leftovers={leftovers.filter((l) => l.hasBudget)}
+        leftovers={beforeStart ? [] : leftovers.filter((l) => l.hasBudget)}
         leftoverMonth={leftoverMonth}
         leftoverMonthLabel={monthLabel(leftoverMonth)}
         today={todayBogota()}

@@ -10,6 +10,7 @@ export interface HouseholdRow {
   target_needs: number;
   target_wants: number;
   target_savings: number;
+  start_month: string | null; // primer mes en que usan la app
 }
 
 export interface MemberRow {
@@ -73,6 +74,8 @@ export interface TransactionRow {
   notes: string | null;
   account_last4: string | null;
   pocket_id: string | null;
+  budget_month: string | null; // mes del presupuesto si lo movieron (YYYY-MM)
+  month: string; // mes del presupuesto efectivo
   created_at: string;
 }
 
@@ -88,7 +91,7 @@ export interface RuleRow {
 }
 
 export const TX_COLUMNS =
-  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, pocket_id, created_at";
+  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, pocket_id, budget_month, month, created_at";
 
 export interface PocketRow {
   id: string;
