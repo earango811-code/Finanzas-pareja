@@ -127,3 +127,12 @@ export function classifyIncoming(
 
   return { status: "pendiente", scope: null, category_id: null, kind: m.kind, appliedRuleId: null, matchedRecurringId: null };
 }
+
+/**
+ * Una cuenta desactivada (ej. una tarjeta de la empresa) no cuenta: sus alertas
+ * entran como ignoradas, sin pasar por Pendientes ni por el presupuesto.
+ */
+export function applyInactiveAccount(c: Classification, account: Pick<IngestAccount, "is_active"> | null): Classification {
+  if (!account || account.is_active) return c;
+  return { ...c, status: "ignorado", appliedRuleId: null, matchedRecurringId: null };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyIncoming, findAccount, matchRecurring, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
+import { applyInactiveAccount, classifyIncoming, findAccount, matchRecurring, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
 import { deriveMemberKey, sign, verifySignature } from "@/lib/hmac";
 
 describe("firma HMAC", () => {
@@ -96,5 +96,23 @@ describe("classifyIncoming", () => {
   });
   it("sin nada, pendiente", () => {
     expect(classifyIncoming(m, "yo", [], [])).toMatchObject({ status: "pendiente", kind: "gasto" });
+  });
+});
+
+describe("cuentas desactivadas", () => {
+  const m = { merchant: "TIENDAS D1", kind: "gasto" as const, amount: 80_000, date: "2026-10-15" };
+  const accounts = [acct({ id: "empresa", type: "credito", last4: "2480", is_active: false })];
+
+  it("la alerta de una tarjeta desactivada se reconoce y entra ignorada, aunque haya regla", () => {
+    const account = findAccount(accounts, "yo", { type: "credito", last4: "2480" });
+    expect(account?.id).toBe("empresa");
+    const c = applyInactiveAccount(classifyIncoming(m, "yo", [rule({})], []), account);
+    expect(c).toMatchObject({ status: "ignorado", appliedRuleId: null });
+  });
+
+  it("las cuentas activas no cambian nada", () => {
+    const c = classifyIncoming(m, "yo", [], []);
+    expect(applyInactiveAccount(c, acct({ is_active: true }))).toBe(c);
+    expect(applyInactiveAccount(c, null)).toBe(c);
   });
 });

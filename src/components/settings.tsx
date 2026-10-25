@@ -86,6 +86,10 @@ export function AccountsEditor({ accounts, members }: { accounts: AccountRow[]; 
           <AccountRowEditor key={a.id} account={a} owner={memberName(a.owner_member_id)} />
         ))}
       </ul>
+      <p className="muted -mt-1 text-xs">
+        Desactiva una cuenta que no deba contar (ej. una tarjeta de la empresa): sus alertas entran como ignoradas y no
+        aparecen en Pendientes ni en el presupuesto.
+      </p>
 
       <div className="card flex flex-col gap-2 p-4">
         <p className="text-sm font-semibold">Agregar cuenta</p>

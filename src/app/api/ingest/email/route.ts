@@ -6,7 +6,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { dedupeKey } from "@/domain/dedupe";
-import { classifyIncoming, findAccount, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
+import { applyInactiveAccount, classifyIncoming, findAccount, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
 import { parseBancolombiaEmail } from "@/domain/parsers/bancolombia-email";
 import { addDays } from "@/domain/recurring";
 import { deriveMemberKey, sha256, verifySignature } from "@/lib/hmac";
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
         .lte("occurred_on", addDays(m.date, 3))
         .returns<RecurringCandidate[]>();
 
-      const c = classifyIncoming(m, memberId, rules, recurring ?? []);
+      const c = applyInactiveAccount(classifyIncoming(m, memberId, rules, recurring ?? []), account);
       const hash = sha256(
         dedupeKey({ householdId, date: m.date, amount: m.amount, accountLast4: m.account.last4, merchant: m.merchant, occurredAt: m.occurredAt }),
       );
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
             kind: c.kind,
             identified_at: c.status === "identificado" ? new Date().toISOString() : null,
             dedupe_hash: hash,
-            notes: c.appliedRuleId ? "Clasificado por regla" : c.matchedRecurringId ? "Conciliado con recurrente" : null,
+            notes: c.status === "ignorado" ? "Cuenta desactivada (no cuenta)" : c.appliedRuleId ? "Clasificado por regla" : c.matchedRecurringId ? "Conciliado con recurrente" : null,
             // Solo lo necesario: nunca el cuerpo completo del correo.
             raw_payload: { messageId: msg.id, type: m.type, subject: msg.subject ?? null, text: m.text },
           },
