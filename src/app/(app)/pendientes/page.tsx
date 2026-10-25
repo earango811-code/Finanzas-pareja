@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header";
-import { PendingInbox, type PendingCard } from "@/components/pending-inbox";
+import { PendingInbox, type PendingCard, type PocketOption } from "@/components/pending-inbox";
 import { suggest, type HistoryItem, type Rule } from "@/domain/rules";
 import { toOptions } from "@/lib/categories";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
@@ -12,7 +12,7 @@ export default async function PendientesPage() {
   const { supabase, me, accounts, categories } = ctx;
   const since = new Date(Date.now() - 180 * 864e5).toISOString().slice(0, 10);
 
-  const [pending, rules, history] = await Promise.all([
+  const [pending, rules, history, pocketsRes] = await Promise.all([
     supabase
       .from("transactions")
       .select(TX_COLUMNS)
@@ -31,7 +31,15 @@ export default async function PendientesPage() {
       .gte("occurred_on", since)
       .limit(2000)
       .returns<HistoryItem[]>(),
+    supabase
+      .from("pockets")
+      .select("id, name, owner_member_id")
+      .eq("household_id", me.household_id)
+      .eq("is_active", true)
+      .order("sort_order")
+      .returns<PocketOption[]>(),
   ]);
+  const pockets = pocketsRes.data ?? [];
 
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const cards: PendingCard[] = (pending.data ?? []).map((t) => {
@@ -48,6 +56,7 @@ export default async function PendientesPage() {
           ? `*${t.account_last4} (registrar en Ajustes)`
           : null,
       paidBy: memberName(ctx, t.paid_by_member_id),
+      paidById: t.paid_by_member_id,
       isMine: t.paid_by_member_id === me.id,
       source: t.source,
       suggestion: suggest(t.merchant, rules.data ?? [], history.data ?? []),
@@ -64,7 +73,7 @@ export default async function PendientesPage() {
   return (
     <>
       <PageHeader title={`Pendientes${cards.length ? ` (${cards.length})` : ""}`} />
-      <PendingInbox cards={cards} categories={chipCategories} />
+      <PendingInbox cards={cards} categories={chipCategories} pockets={pockets} />
     </>
   );
 }

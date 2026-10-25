@@ -74,6 +74,13 @@ export default async function AjustesPage() {
             <span className="font-semibold">Recurrentes</span>
             <span className="muted text-xs">Arriendo, empleada, suscripciones…</span>
           </Link>
+          <Link href="/bolsillos" className="card col-span-2 flex items-center gap-3 p-4">
+            <span className="text-2xl" aria-hidden>🐷</span>
+            <span>
+              <span className="block font-semibold">Bolsillos</span>
+              <span className="muted text-xs">Viaje, imprevistos… y pasar el sobrante del mes</span>
+            </span>
+          </Link>
         </nav>
 
         <section id="pin">

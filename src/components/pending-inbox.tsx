@@ -21,9 +21,23 @@ export interface PendingCard {
   date: string;
   account: string | null;
   paidBy: string;
+  paidById: string;
   isMine: boolean;
   source: TxSource;
   suggestion: Suggestion | null;
+}
+
+export interface PocketOption {
+  id: string;
+  name: string;
+  owner_member_id: string | null; // null = compartido
+}
+
+/** Bolsillos que sirven para el ámbito elegido (compartido → compartidos; personal → del que pagó). */
+function pocketsFor(scope: TxScope, pockets: PocketOption[], payerIds: string[]) {
+  if (scope === "compartido") return pockets.filter((p) => p.owner_member_id === null);
+  const payers = new Set(payerIds);
+  return payers.size === 1 ? pockets.filter((p) => p.owner_member_id !== null && payers.has(p.owner_member_id)) : [];
 }
 
 const SOURCE_LABEL: Record<TxSource, string> = {
@@ -45,7 +59,15 @@ function categoriesFor(scope: TxScope, all: CategoryOption[], kind: TxKind) {
   return list.filter((c) => !c.isIncome);
 }
 
-export function PendingInbox({ cards, categories }: { cards: PendingCard[]; categories: CategoryOption[] }) {
+export function PendingInbox({
+  cards,
+  categories,
+  pockets = [],
+}: {
+  cards: PendingCard[];
+  categories: CategoryOption[];
+  pockets?: PocketOption[];
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -166,7 +188,9 @@ export function PendingInbox({ cards, categories }: { cards: PendingCard[]; cate
                 busy={pending}
                 defaultScope={s?.scope ?? null}
                 kind={c.kind}
-                onClassify={(scope, categoryId, remember) => run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember }))}
+                pockets={pockets}
+                payerIds={[c.paidById]}
+                onClassify={(scope, categoryId, remember, pocketId) => run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember, pocketId }))}
                 onTransfer={(kind) => run(() => markAsTransfer({ ids: [c.id], kind }))}
                 onIgnore={() => run(() => ignoreTransactions([c.id]))}
               />
@@ -183,7 +207,9 @@ export function PendingInbox({ cards, categories }: { cards: PendingCard[]; cate
             busy={pending}
             defaultScope={null}
             kind={selectedIds.every((id) => cards.find((x) => x.id === id)?.kind === "ingreso") ? "ingreso" : "gasto"}
-            onClassify={(scope, categoryId, remember) => run(() => classifyTransactions({ ids: selectedIds, scope, categoryId, remember }))}
+            pockets={pockets}
+            payerIds={cards.filter((x) => selected.has(x.id)).map((x) => x.paidById)}
+            onClassify={(scope, categoryId, remember, pocketId) => run(() => classifyTransactions({ ids: selectedIds, scope, categoryId, remember, pocketId }))}
             onTransfer={(kind) => run(() => markAsTransfer({ ids: selectedIds, kind }))}
             onIgnore={() => run(() => ignoreTransactions(selectedIds))}
           />
@@ -207,6 +233,8 @@ function Classifier({
   busy,
   defaultScope,
   kind,
+  pockets,
+  payerIds,
   onClassify,
   onTransfer,
   onIgnore,
@@ -215,14 +243,19 @@ function Classifier({
   busy: boolean;
   defaultScope: TxScope | null;
   kind: TxKind;
-  onClassify: (scope: TxScope, categoryId: string, remember: boolean) => void;
+  pockets: PocketOption[];
+  payerIds: string[];
+  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null) => void;
   onTransfer: (kind: "transferencia_interna" | "pago_tarjeta") => void;
   onIgnore: () => void;
 }) {
   const [scope, setScope] = useState<TxScope | null>(defaultScope);
   const [remember, setRemember] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [pocketId, setPocketId] = useState<string>("");
   const options = scope ? categoriesFor(scope, categories, kind) : [];
+  const pocketOptions = scope ? pocketsFor(scope, pockets, payerIds) : [];
+  const chosenPocket = pocketOptions.some((p) => p.id === pocketId) ? pocketId : "";
   // Atajos: las 8 más usadas que se pueden elegir directo (subcategorías o principales sin hijas).
   const quick = options.filter((c) => !c.hasChildren).slice(0, 8);
   const parents = options.filter((c) => !c.parentId);
@@ -244,10 +277,23 @@ function Classifier({
 
       {scope && (
         <>
+          {pocketOptions.length > 0 && kind !== "ingreso" && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="muted shrink-0">🐷 Pagado desde</span>
+              <select className="input !py-1.5 text-sm" value={chosenPocket} onChange={(e) => setPocketId(e.target.value)}>
+                <option value="">— presupuesto del mes —</option>
+                {pocketOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Bolsillo {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!showAll ? (
             <div className="flex flex-wrap gap-2">
               {quick.map((c) => (
-                <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember)}>
+                <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
                   {c.name}
                 </button>
               ))}
@@ -262,14 +308,14 @@ function Classifier({
                     <p className="muted mb-1 text-xs font-semibold uppercase tracking-wide">{p.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {kids.map((c) => (
-                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember)}>
+                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
                           {c.name}
                         </button>
                       ))}
                       <button
                         className={`chip ${kids.length ? "muted" : ""}`}
                         disabled={busy}
-                        onClick={() => onClassify(scope, p.id, remember)}
+                        onClick={() => onClassify(scope, p.id, remember, chosenPocket || null)}
                       >
                         {kids.length ? `${p.name} (general)` : p.name}
                       </button>

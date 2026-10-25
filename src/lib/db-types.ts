@@ -72,6 +72,7 @@ export interface TransactionRow {
   kind: TxKind;
   notes: string | null;
   account_last4: string | null;
+  pocket_id: string | null;
   created_at: string;
 }
 
@@ -87,4 +88,25 @@ export interface RuleRow {
 }
 
 export const TX_COLUMNS =
-  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, created_at";
+  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, pocket_id, created_at";
+
+export interface PocketRow {
+  id: string;
+  name: string;
+  owner_member_id: string | null; // null = compartido
+  target_amount: number | null;
+  opening_balance: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface PocketMovementRow {
+  id: string;
+  pocket_id: string;
+  occurred_on: string;
+  kind: "aporte" | "sobrante" | "retiro";
+  amount: number;
+  month: string | null;
+  note: string | null;
+  created_at: string;
+}

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { TxActions } from "@/components/tx-actions";
 import { currentMonth, isValidMonth, monthRange, shortDate } from "@/domain/dates";
 import { formatCOP } from "@/domain/money";
+import { pocketFitsTx } from "@/domain/pockets";
 import { KIND_LABEL } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
 import { categoryLabel } from "@/lib/categories";
@@ -39,8 +40,18 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
     if (filter === "compartido" || filter === "personal") q = q.eq("scope", filter);
     if (filter === "otros") q = q.in("kind", ["transferencia_interna", "pago_tarjeta", "liquidacion"]);
   }
-  const { data } = await q.returns<TransactionRow[]>();
+  const [{ data }, { data: pocketData }] = await Promise.all([
+    q.returns<TransactionRow[]>(),
+    supabase
+      .from("pockets")
+      .select("id, name, owner_member_id, is_active")
+      .eq("household_id", me.household_id)
+      .returns<{ id: string; name: string; owner_member_id: string | null; is_active: boolean }[]>(),
+  ]);
   const txs = data ?? [];
+  const allPockets = pocketData ?? [];
+  const pocketName = new Map(allPockets.map((p) => [p.id, p.name]));
+  const activePockets = allPockets.filter((p) => p.is_active);
   const catById = new Map(allCategories.map((c) => [c.id, c]));
   const acctName = new Map(accounts.map((a) => [a.id, a.name]));
 
@@ -73,12 +84,23 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                     {t.kind === "liquidacion" && ` → ${memberName(ctx, t.counterparty_member_id)}`}
                     {t.account_id && ` · ${acctName.get(t.account_id)}`}
                   </p>
+                  {t.pocket_id && <p className="text-xs text-[var(--color-brand)]">🐷 Pagado desde {pocketName.get(t.pocket_id) ?? "bolsillo"}</p>}
                 </div>
                 <p className={`tabular text-sm font-semibold ${t.kind === "ingreso" ? "text-emerald-600" : ""}`}>
                   {t.kind === "ingreso" ? "+" : ""}
                   {formatCOP(t.amount)}
                 </p>
-                <TxActions id={t.id} canReopen={t.kind !== "liquidacion"} canDelete={t.source === "manual" || t.source === "recurrente"} />
+                <TxActions
+                  id={t.id}
+                  canReopen={t.kind !== "liquidacion"}
+                  canDelete={t.source === "manual" || t.source === "recurrente"}
+                  currentPocketId={t.pocket_id}
+                  pockets={
+                    t.status === "identificado" && (t.kind === "gasto" || t.kind === "ingreso")
+                      ? activePockets.filter((p) => pocketFitsTx(p.owner_member_id, t))
+                      : []
+                  }
+                />
               </li>
             );
           })}

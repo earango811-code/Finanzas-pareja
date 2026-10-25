@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { todayBogota } from "@/domain/dates";
+import { pocketFitsTx } from "@/domain/pockets";
 import { firstOccurrence, firstOnOrAfter, type Frequency } from "@/domain/recurring";
 import { rulePatternFor } from "@/domain/rules";
 import { getHousehold } from "@/lib/household";
@@ -33,12 +34,36 @@ const classifySchema = z.object({
   scope: z.enum(["compartido", "personal"]),
   categoryId: uuid,
   remember: z.boolean().default(false),
+  pocketId: uuid.nullable().default(null), // "pagado desde este bolsillo"
 });
+
+/** Valida que los movimientos se puedan pagar desde el bolsillo (mismo ámbito y dueño). */
+async function assertPocketFits(
+  supabase: Awaited<ReturnType<typeof getHousehold>>["supabase"],
+  pocketId: string,
+  txs: { scope: "compartido" | "personal" | null; paid_by_member_id: string }[],
+) {
+  const { data: pocket } = await supabase.from("pockets").select("owner_member_id, name").eq("id", pocketId).single<{ owner_member_id: string | null; name: string }>();
+  if (!pocket) throw new Error("Bolsillo no encontrado");
+  const bad = txs.find((t) => !pocketFitsTx(pocket.owner_member_id, t));
+  if (bad) {
+    throw new Error(
+      pocket.owner_member_id === null
+        ? `"${pocket.name}" es compartido: solo sirve para gastos compartidos`
+        : `"${pocket.name}" es personal: solo sirve para gastos personales de su dueño`,
+    );
+  }
+}
 
 export async function classifyTransactions(input: z.input<typeof classifySchema>): Promise<ActionResult> {
   try {
     const p = classifySchema.parse(input);
     const { supabase, me, user } = await getHousehold();
+
+    if (p.pocketId) {
+      const { data: current } = await supabase.from("transactions").select("paid_by_member_id").in("id", p.ids);
+      await assertPocketFits(supabase, p.pocketId, (current ?? []).map((t) => ({ scope: p.scope, paid_by_member_id: t.paid_by_member_id as string })));
+    }
 
     const { data: txs, error } = await supabase
       .from("transactions")
@@ -46,6 +71,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
         status: "identificado",
         scope: p.scope,
         category_id: p.categoryId,
+        pocket_id: p.pocketId,
         identified_by: user.id,
         identified_at: new Date().toISOString(),
       })
@@ -154,6 +180,7 @@ const manualSchema = z.object({
   accountId: uuid.nullable(),
   paidBy: uuid,
   rawText: z.string().max(300).optional(),
+  pocketId: uuid.nullable().default(null),
 });
 
 export async function createManualTransaction(input: z.input<typeof manualSchema>): Promise<ActionResult> {
@@ -162,7 +189,9 @@ export async function createManualTransaction(input: z.input<typeof manualSchema
     const { supabase, me, members } = await getHousehold();
     if (!members.some((m) => m.id === p.paidBy)) throw new Error("Miembro inválido");
     const complete = p.scope !== null && (p.categoryId !== null || p.kind === "ingreso");
+    if (p.pocketId) await assertPocketFits(supabase, p.pocketId, [{ scope: p.scope, paid_by_member_id: p.paidBy }]);
     const { error } = await supabase.from("transactions").insert({
+      pocket_id: p.pocketId,
       household_id: me.household_id,
       occurred_on: p.date,
       amount: p.amount,
@@ -703,6 +732,121 @@ export async function deleteRecurring(id: string): Promise<ActionResult> {
     if (error) throw new Error(error.message);
     refresh();
     return { ok: true, message: "Eliminada (los movimientos ya creados se conservan)" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bolsillos
+// ---------------------------------------------------------------------------
+
+const pocketSchema = z.object({
+  id: uuid.nullable(),
+  name: z.string().trim().min(1, "Ponle un nombre").max(40),
+  ownerMemberId: uuid.nullable(), // null = compartido
+  targetAmount: pesos.nullable(),
+  openingBalance: pesos.default(0),
+});
+
+export async function savePocket(input: z.input<typeof pocketSchema>): Promise<ActionResult> {
+  try {
+    const p = pocketSchema.parse(input);
+    const { supabase, me, members } = await getHousehold();
+    if (p.ownerMemberId && !members.some((m) => m.id === p.ownerMemberId)) throw new Error("Dueño inválido");
+    const fields = {
+      name: p.name,
+      owner_member_id: p.ownerMemberId,
+      target_amount: p.targetAmount && p.targetAmount > 0 ? p.targetAmount : null,
+      opening_balance: p.openingBalance,
+    };
+    const { error } = p.id
+      ? await supabase.from("pockets").update(fields).eq("id", p.id)
+      : await supabase.from("pockets").insert({ ...fields, household_id: me.household_id });
+    if (error) throw new Error(error.code === "23505" ? "Ya existe un bolsillo con ese nombre" : error.message);
+    refresh();
+    return { ok: true, message: p.id ? "Bolsillo actualizado" : "Bolsillo creado" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setPocketActive(id: string, active: boolean): Promise<ActionResult> {
+  try {
+    const { supabase } = await getHousehold();
+    const { error } = await supabase.from("pockets").update({ is_active: active }).eq("id", uuid.parse(id));
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: active ? "Bolsillo activado" : "Bolsillo archivado (su historial se conserva)" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const movementSchema = z.object({
+  pocketId: uuid,
+  kind: z.enum(["aporte", "sobrante", "retiro"]),
+  amount: pesos.refine((n) => n > 0, "El valor debe ser mayor a 0"),
+  date: isoDate,
+  month: z.string().regex(/^\d{4}-\d{2}$/).nullable().default(null),
+  note: z.string().trim().max(120).nullable().default(null),
+});
+
+/** Aporte, retiro o paso del sobrante de un mes a un bolsillo. */
+export async function addPocketMovement(input: z.input<typeof movementSchema>): Promise<ActionResult> {
+  try {
+    const p = movementSchema.parse(input);
+    if (p.kind === "sobrante" && !p.month) throw new Error("Falta el mes del sobrante");
+    const { supabase, me } = await getHousehold();
+    const { error } = await supabase.from("pocket_movements").insert({
+      household_id: me.household_id,
+      pocket_id: p.pocketId,
+      kind: p.kind,
+      amount: p.amount,
+      occurred_on: p.date,
+      month: p.kind === "sobrante" ? p.month : null,
+      note: p.note,
+    });
+    if (error) throw new Error(error.message);
+    refresh();
+    const verb = p.kind === "retiro" ? "Retiro registrado" : p.kind === "sobrante" ? "Sobrante pasado al bolsillo" : "Aporte registrado";
+    return { ok: true, message: verb };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deletePocketMovement(id: string): Promise<ActionResult> {
+  try {
+    const { supabase } = await getHousehold();
+    const { error } = await supabase.from("pocket_movements").delete().eq("id", uuid.parse(id));
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: "Movimiento eliminado" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Marca (o desmarca con null) un movimiento ya identificado como pagado desde un bolsillo. */
+export async function setTransactionPocket(txId: string, pocketId: string | null): Promise<ActionResult> {
+  try {
+    const { supabase } = await getHousehold();
+    const id = uuid.parse(txId);
+    const { data: tx } = await supabase
+      .from("transactions")
+      .select("scope, paid_by_member_id, kind")
+      .eq("id", id)
+      .single<{ scope: "compartido" | "personal" | null; paid_by_member_id: string; kind: string }>();
+    if (!tx) throw new Error("Movimiento no encontrado");
+    if (pocketId) {
+      if (tx.kind !== "gasto" && tx.kind !== "ingreso") throw new Error("Solo gastos o devoluciones se pagan desde un bolsillo");
+      await assertPocketFits(supabase, uuid.parse(pocketId), [tx]);
+    }
+    const { error } = await supabase.from("transactions").update({ pocket_id: pocketId }).eq("id", id);
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: pocketId ? "Pagado desde el bolsillo: ya no cuenta en el presupuesto del mes" : "Vuelve a contar en el presupuesto del mes" };
   } catch (e) {
     return fail(e);
   }

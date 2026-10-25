@@ -30,6 +30,7 @@ export interface BudgetTx {
   status: TxStatus;
   category_id: string | null;
   paid_by_member_id: string;
+  pocket_id?: string | null; // pagado desde un bolsillo: no cuenta en el presupuesto del mes
 }
 
 export type AlertLevel = "ok" | "alerta" | "excedido";
@@ -66,7 +67,7 @@ export function resolveBudgetAmounts(lines: BudgetLine[], incomeBase: number): M
 
 /** Gasto neto (gastos − reembolsos) de una transacción para el presupuesto. */
 function budgetEffect(t: BudgetTx): number {
-  if (t.status !== "identificado") return 0;
+  if (t.status !== "identificado" || t.pocket_id) return 0;
   if (t.kind === "gasto") return t.amount;
   if (t.kind === "ingreso" && t.category_id) return -t.amount; // devolución categorizada
   return 0;

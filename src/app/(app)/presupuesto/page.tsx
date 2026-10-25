@@ -65,7 +65,16 @@ export default async function PresupuestoPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <PageHeader title="Presupuesto" month={month} basePath={`/presupuesto`} />
+      <PageHeader
+        title="Presupuesto"
+        month={month}
+        basePath={`/presupuesto`}
+        right={
+          <Link href="/bolsillos" className="btn btn-ghost !min-h-10 !px-3 text-sm" aria-label="Bolsillos">
+            🐷 Bolsillos
+          </Link>
+        }
+      />
       <div className="flex gap-2 overflow-x-auto px-4 pb-3">
         {tabs.map((t) => (
           <Link key={t.key} href={`/presupuesto?mes=${month}&vista=${t.key}`} className="chip shrink-0" data-active={view === t.key}>

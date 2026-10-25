@@ -47,6 +47,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    3. `20261025000003_recurrentes.sql`
    4. `20261025000004_ingesta_correo.sql`
    5. `20261025000005_pin.sql`
+   6. `20261025000006_bolsillos.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
@@ -157,6 +158,19 @@ quincenal 15 y último día, mensual, bimestral, trimestral o anual), desde y ha
   banco, para no contarlo dos veces.
 - Si el mes no tiene el día (ej. 31), se usa el último día del mes.
 - Pausar, editar o eliminar una recurrente no toca los movimientos que ya se crearon.
+
+### Bolsillos
+
+En **Presupuesto → 🐷 Bolsillos** (o Ajustes) crean bolsillos para apartar plata: Viaje, Imprevistos…
+Cada uno puede ser compartido o personal y tener una meta.
+
+- **Se llenan** pasando el sobrante del mes (la app muestra cuánto sobró del presupuesto el mes anterior y
+  ustedes deciden a qué bolsillo pasarlo) o con aportes a mano.
+- **Se gastan** marcando un gasto como *Pagado desde el bolsillo* (al clasificarlo en Pendientes, al
+  registrarlo, o desde el menú ⋯ en Movimientos). Ese gasto no se come el presupuesto del mes y se
+  descuenta del bolsillo.
+- En **quién le debe a quién** un gasto compartido pagado desde un bolsillo sigue contando y se reparte
+  por %: el bolsillo es plata apartada en papel, pero el pago salió de la cuenta de uno de los dos.
 
 ### Reglas de cálculo
 

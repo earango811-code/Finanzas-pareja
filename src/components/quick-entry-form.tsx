@@ -15,6 +15,7 @@ interface Props {
   members: { id: string; name: string }[];
   accounts: { id: string; name: string; type: string; ownerId: string }[];
   categories: CategoryOption[];
+  pockets: { id: string; name: string; owner_member_id: string | null }[];
 }
 
 function addDays(iso: string, days: number) {
@@ -23,7 +24,7 @@ function addDays(iso: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
-export function QuickEntryForm({ today, meId, members, accounts, categories }: Props) {
+export function QuickEntryForm({ today, meId, members, accounts, categories, pockets }: Props) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
@@ -36,6 +37,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories }: P
     accounts.find((a) => a.ownerId === meId && a.type === "efectivo")?.id ?? null,
   );
   const [date, setDate] = useState(today);
+  const [pocketId, setPocketId] = useState("");
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, start] = useTransition();
 
@@ -64,6 +66,13 @@ export function QuickEntryForm({ today, meId, members, accounts, categories }: P
   const parentOptions = catOptions.filter((c) => !c.parentId);
   const childOptions = openParent ? catOptions.filter((c) => c.parentId === openParent) : [];
   const ownAccounts = accounts.filter((a) => a.ownerId === paidBy);
+  // Compartido → bolsillos compartidos; personal → bolsillos de quien pagó
+  const pocketChoices =
+    scope === "compartido"
+      ? pockets.filter((p) => p.owner_member_id === null)
+      : scope === "personal"
+        ? pockets.filter((p) => p.owner_member_id === paidBy)
+        : [];
 
   function submit() {
     if (!amount) return setMsg({ text: "Falta el valor", error: true });
@@ -78,6 +87,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories }: P
         accountId,
         paidBy,
         rawText: text || undefined,
+        pocketId: kind === "gasto" && pocketChoices.some((p) => p.id === pocketId) ? pocketId : null,
       });
       if (!r.ok) return setMsg({ text: r.error, error: true });
       setMsg({ text: r.message ?? "Registrado" });
@@ -86,6 +96,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories }: P
       setMerchant("");
       setCategoryId(null);
       setScope(null);
+      setPocketId("");
       setDate(today);
       router.refresh();
     });
@@ -153,6 +164,20 @@ export function QuickEntryForm({ today, meId, members, accounts, categories }: P
               </button>
             ))}
           </div>
+        )}
+
+        {kind === "gasto" && pocketChoices.length > 0 && (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="muted shrink-0">🐷 Pagado desde</span>
+            <select className="input !py-1.5 text-sm" value={pocketId} onChange={(e) => setPocketId(e.target.value)}>
+              <option value="">— presupuesto del mes —</option>
+              {pocketChoices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  Bolsillo {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
         <div className="grid grid-cols-2 gap-2">
