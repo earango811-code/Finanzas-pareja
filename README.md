@@ -46,19 +46,10 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    2. `20261025000002_subcategorias.sql`
    3. `20261025000003_recurrentes.sql`
    4. `20261025000004_ingesta_correo.sql`
+   5. `20261025000005_pin.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
-4. **Authentication → Emails → Templates → Magic Link**: reemplaza el contenido por algo como:
-
-   ```html
-   <h2>Tu código para Finanzas en pareja</h2>
-   <p style="font-size:28px;letter-spacing:6px"><b>{{ .Token }}</b></p>
-   <p>Vence en 1 hora. Si no lo pediste, ignora este correo.</p>
-   ```
-
-   > Usamos **código de 6 dígitos** y no enlace porque en iPhone el enlace abre Safari y la app
-   > instalada no queda con la sesión iniciada.
-
-5. **Project Settings → API**: copia la **Project URL** y la llave **anon public**. Las usarás en el paso 3.
+4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
+   *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
 
 ### 3. Publicar la app en Vercel
 
@@ -71,19 +62,29 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    - `INGEST_HMAC_SECRET` = una frase larga y aleatoria, mínimo 32 caracteres (por ejemplo, la salida
      de `openssl rand -base64 48`). Con ella se firman las alertas.
 3. **Deploy**. Al terminar te da una dirección tipo `https://finanzas-pareja.vercel.app`.
-4. De vuelta en Supabase: **Authentication → URL Configuration → Site URL** = esa dirección.
+4. De vuelta en Supabase: **Authentication → URL Configuration**:
+   - **Site URL** = esa dirección.
+   - **Redirect URLs → Add URL** = esa dirección seguida de `/**` (ej. `https://finanzas-pareja.vercel.app/**`).
 
 ### 4. Primer uso
 
-1. Uno de los dos abre la dirección, entra con su correo y el código.
+1. Uno de los dos abre la dirección en el computador → *¿Primera vez…? Entrar con enlace al correo*
+   → abre el correo de Supabase **en ese mismo navegador** y toca *Sign in*.
 2. Llena el formulario de bienvenida: su nombre, ingreso, el nombre, **correo** e ingreso de la pareja,
    y los descuentos fijos si hay (ej. cuota de especialización). Se cargan las categorías y montos
    del Excel.
-3. La pareja entra con **ese mismo correo** y queda vinculada automáticamente al hogar.
-4. En **⚙️ Ajustes → Cuentas** agreguen sus cuentas con los **últimos 4 dígitos** tal como aparecen
+3. En **⚙️ Ajustes → Acceso con PIN**: crea tu PIN de 4 números y, abajo, *Crear el acceso* de tu
+   pareja con un PIN inicial (se lo pasas en persona; ella lo puede cambiar).
+4. Desde ahí, los dos entran con **correo + PIN** en el computador y en el celular. Tras 5 intentos
+   fallidos se bloquea 15 minutos. Si alguien olvida el PIN: el otro se lo restablece en Ajustes, o entra
+   con el enlace al correo y crea uno nuevo.
+
+> El PIN no se guarda: el servidor lo convierte en una contraseña larga con `INGEST_HMAC_SECRET`.
+> Si algún día cambian ese secreto, los dos tendrán que entrar con el enlace y crear el PIN otra vez.
+5. En **⚙️ Ajustes → Cuentas** agreguen sus cuentas con los **últimos 4 dígitos** tal como aparecen
    en las alertas (ej. `TC Bancolombia *1234`). En la cuenta de ahorros pongan también los 4 de la
    tarjeta débito (las compras con débito traen los de la tarjeta). Nunca escriban el número completo.
-5. Cada uno conecta su Gmail para que las alertas entren solas: sigan
+6. Cada uno conecta su Gmail para que las alertas entren solas: sigan
    [docs/gmail-apps-script.md](docs/gmail-apps-script.md) (10 minutos).
 
 > ¿Quieren ver la app con datos de prueba? En un proyecto de Supabase **de pruebas**, después del

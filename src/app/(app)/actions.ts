@@ -6,6 +6,8 @@ import { todayBogota } from "@/domain/dates";
 import { firstOccurrence, firstOnOrAfter, type Frequency } from "@/domain/recurring";
 import { rulePatternFor } from "@/domain/rules";
 import { getHousehold } from "@/lib/household";
+import { isWeakPin, normalizeEmail, PIN_REGEX, pinToPassword } from "@/lib/pin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -417,6 +419,85 @@ export async function deleteRule(id: string): Promise<ActionResult> {
     if (error) throw new Error(error.message);
     refresh();
     return { ok: true, message: "Regla eliminada" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PIN de entrada
+// ---------------------------------------------------------------------------
+
+const pinSchema = z.object({
+  pin: z.string().regex(PIN_REGEX, "El PIN son 4 números"),
+  confirm: z.string(),
+});
+
+function checkPin(p: z.infer<typeof pinSchema>) {
+  if (p.pin !== p.confirm) throw new Error("Los dos PIN no coinciden");
+  if (isWeakPin(p.pin)) throw new Error("Ese PIN es muy fácil de adivinar (ej. 1234, 0000). Elige otro");
+  const secret = process.env.INGEST_HMAC_SECRET;
+  if (!secret) throw new Error("Falta INGEST_HMAC_SECRET en el servidor");
+  return secret;
+}
+
+/** Crea o cambia mi PIN. */
+export async function setMyPin(input: z.input<typeof pinSchema>): Promise<ActionResult> {
+  try {
+    const p = pinSchema.parse(input);
+    const secret = checkPin(p);
+    const { user, me } = await getHousehold();
+    if (!user.email) throw new Error("Tu usuario no tiene correo");
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(user.id, { password: pinToPassword(secret, user.email, p.pin) });
+    if (error) throw new Error(error.message);
+    await admin.from("members").update({ pin_set_at: new Date().toISOString() }).eq("id", me.id);
+    await admin.from("login_attempts").delete().eq("email", normalizeEmail(user.email));
+    refresh();
+    return { ok: true, message: "PIN guardado. Ya puedes entrar con correo + PIN" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/**
+ * Crea el acceso de la pareja (o le restablece el PIN si lo olvidó). Solo lo puede
+ * hacer un miembro del mismo hogar; la pareja puede cambiarlo después en su Ajustes.
+ */
+export async function setPartnerPin(input: z.input<typeof pinSchema>): Promise<ActionResult> {
+  try {
+    const p = pinSchema.parse(input);
+    const secret = checkPin(p);
+    const { partner } = await getHousehold();
+    if (!partner) throw new Error("No hay pareja en el hogar");
+    const email = normalizeEmail(partner.email);
+    const password = pinToPassword(secret, email, p.pin);
+    const admin = createAdminClient();
+
+    let userId = partner.user_id;
+    if (userId) {
+      const { error } = await admin.auth.admin.updateUserById(userId, { password });
+      if (error) throw new Error(error.message);
+    } else {
+      const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+      if (created.error) {
+        // Ya existe (entró alguna vez con enlace pero no quedó vinculada): buscarla
+        const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existing = list?.users.find((u) => normalizeEmail(u.email ?? "") === email);
+        if (!existing) throw new Error(created.error.message);
+        const { error } = await admin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+        if (error) throw new Error(error.message);
+        userId = existing.id;
+      } else {
+        userId = created.data.user.id;
+      }
+      const { error: linkErr } = await admin.from("members").update({ user_id: userId }).eq("id", partner.id).is("user_id", null);
+      if (linkErr) throw new Error(linkErr.message);
+    }
+    await admin.from("members").update({ pin_set_at: new Date().toISOString() }).eq("id", partner.id);
+    await admin.from("login_attempts").delete().eq("email", email);
+    refresh();
+    return { ok: true, message: `Listo: ${partner.display_name} entra con ${email} y ese PIN` };
   } catch (e) {
     return fail(e);
   }

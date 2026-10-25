@@ -1,4 +1,4 @@
--- ARCHIVO GENERADO: las 4 migraciones de supabase/migrations/ en orden, para pegar de una
+-- ARCHIVO GENERADO: las migraciones de supabase/migrations/ en orden, para pegar de una
 -- sola vez en Supabase → SQL Editor. No lo edites a mano: edita las migraciones.
 
 -- ============================================================
@@ -532,3 +532,25 @@ create index on public.ingest_log (household_id, created_at desc);
 alter table public.ingest_log enable row level security;
 create policy "hogar: leer bitácora" on public.ingest_log
   for select using (household_id in (select public.my_household_ids()));
+
+-- ============================================================
+-- 20261025000005_pin.sql
+-- ============================================================
+-- Entrada con correo + PIN de 4 dígitos.
+-- El PIN no se guarda: el servidor lo convierte en una contraseña larga (HMAC con
+-- un secreto del servidor) y esa es la que conoce Supabase Auth.
+
+-- Para saber si cada uno ya creó su PIN (y mostrarle el aviso si no).
+alter table public.members
+  add column pin_set_at timestamptz;
+
+-- Intentos fallidos por correo, para bloquear ataques de fuerza bruta.
+-- Solo la usa el servidor (service role): RLS activo y sin políticas.
+create table public.login_attempts (
+  email         text primary key,
+  failures      int not null default 0,
+  lockouts      int not null default 0,
+  locked_until  timestamptz,
+  updated_at    timestamptz not null default now()
+);
+alter table public.login_attempts enable row level security;

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { GmailConnect } from "@/components/gmail-connect";
 import { PageHeader } from "@/components/page-header";
+import { PinSettings } from "@/components/pin-settings";
 import { currentMonth } from "@/domain/dates";
 import { deriveMemberKey } from "@/lib/hmac";
 import {
@@ -20,7 +21,7 @@ import { getHousehold } from "@/lib/household";
 export const metadata = { title: "Ajustes" };
 
 export default async function AjustesPage() {
-  const { supabase, me, members, accounts, categories, allCategories, user } = await getHousehold();
+  const { supabase, me, members, partner, accounts, categories, allCategories, user } = await getHousehold();
   const monthStart = `${currentMonth()}-01`;
   const [budgets, rules, logs] = await Promise.all([
     supabase.from("budgets").select("*").eq("household_id", me.household_id).returns<BudgetRowDb[]>(),
@@ -74,6 +75,22 @@ export default async function AjustesPage() {
             <span className="muted text-xs">Arriendo, empleada, suscripciones…</span>
           </Link>
         </nav>
+
+        <section id="pin">
+          <h2 className="mb-1 font-semibold">Acceso con PIN</h2>
+          <p className="muted mb-3 text-xs">
+            Entran con su correo + un PIN de 4 números. Tras 5 intentos fallidos se bloquea 15 minutos (y cada bloqueo dura
+            el doble). La sesión queda abierta en cada dispositivo.
+          </p>
+          <PinSettings
+            myPinSet={!!me.pin_set_at}
+            partner={
+              partner
+                ? { name: partner.display_name, email: partner.email, linked: !!partner.user_id, pinSet: !!partner.pin_set_at }
+                : null
+            }
+          />
+        </section>
 
         <section>
           <h2 className="mb-1 font-semibold">Alertas del banco por correo</h2>

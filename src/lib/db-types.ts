@@ -21,6 +21,7 @@ export interface MemberRow {
   monthly_income: number;
   income_deductions: number;
   deductions_note: string | null;
+  pin_set_at: string | null;
 }
 
 export interface AccountRow {
