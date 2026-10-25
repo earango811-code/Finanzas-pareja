@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getSession } from "@/lib/household";
+import { Logo } from "@/components/logo";
 import { MoneyInput } from "@/components/money-input";
 
 const schema = z.object({
@@ -28,6 +29,7 @@ export default async function WelcomePage() {
 
   return (
     <main className="mx-auto max-w-md px-5 py-10">
+      <Logo size={56} className="mb-4 rounded-2xl shadow-md" />
       <h1 className="text-2xl font-bold">Bienvenido 👋</h1>
       <p className="muted mt-1 text-sm">
         Entraste como <b>{user.email}</b>. Si tu pareja ya creó el hogar con este correo, pídele que revise el

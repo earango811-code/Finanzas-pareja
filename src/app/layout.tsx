@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Presupuesto compartido, gastos personales y quién le debe a quién.",
   applicationName: "Finanzas en pareja",
   appleWebApp: { capable: true, title: "Finanzas", statusBarStyle: "default" },
-  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  icons: { apple: "/icons/apple-touch-icon.png" }, // el favicon sale de src/app/icon.svg
 };
 
 export const viewport: Viewport = {

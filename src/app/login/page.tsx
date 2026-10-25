@@ -5,6 +5,7 @@
 // o si alguien olvidó el PIN.
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 const EMAIL_KEY = "finanzas:ultimo-correo";
@@ -122,6 +123,7 @@ function LoginForm() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
       <div>
+        <Logo size={64} className="mb-4 rounded-2xl shadow-md" />
         <h1 className="text-2xl font-bold">Finanzas en pareja</h1>
         <p className="muted mt-1">
           {mode === "pin" ? "Entra con tu correo y tu PIN." : "Te enviamos un enlace al correo para entrar."}
