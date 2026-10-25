@@ -1,6 +1,6 @@
 // Firma de las solicitudes del Apps Script.
 //
-// Cada miembro tiene su propia clave, derivada del secreto maestro (INGEST_HMAC_SECRET)
+// Cada miembro tiene su propia clave, derivada del secreto maestro de alertas (alertsMasterSecret)
 // y de su id: así no hay claves guardadas en la base, y si se filtra la de uno no
 // sirve para hacerse pasar por el otro. Cambiar el secreto maestro rota las dos.
 //
@@ -8,6 +8,15 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export const MAX_SKEW_SECONDS = 300;
+
+/**
+ * Secreto maestro para firmar alertas. Es independiente del de los PIN
+ * (INGEST_HMAC_SECRET), así se puede rotar sin obligar a crear los PIN de nuevo.
+ * Si no está, se usa INGEST_HMAC_SECRET (instalaciones anteriores).
+ */
+export function alertsMasterSecret(): string | undefined {
+  return process.env.ALERTS_HMAC_SECRET || process.env.INGEST_HMAC_SECRET;
+}
 
 export function deriveMemberKey(masterSecret: string, memberId: string): string {
   return createHmac("sha256", masterSecret).update(`ingest:${memberId}`).digest("base64url");

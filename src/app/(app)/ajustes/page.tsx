@@ -4,7 +4,7 @@ import { GmailConnect } from "@/components/gmail-connect";
 import { PageHeader } from "@/components/page-header";
 import { PinSettings } from "@/components/pin-settings";
 import { currentMonth } from "@/domain/dates";
-import { deriveMemberKey } from "@/lib/hmac";
+import { alertsMasterSecret, deriveMemberKey } from "@/lib/hmac";
 import {
   AccountsEditor,
   BudgetEditor,
@@ -39,7 +39,7 @@ export default async function AjustesPage() {
   // Conexión de Gmail: URL del webhook, clave personal (derivada) y estado de cada uno
   const h = await headers();
   const webhookUrl = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}/api/ingest/email`;
-  const master = process.env.INGEST_HMAC_SECRET;
+  const master = alertsMasterSecret();
   const secret = master && master.length >= 32 && process.env.SUPABASE_SERVICE_ROLE_KEY ? deriveMemberKey(master, me.id) : null;
   const logRows = logs.data ?? [];
   const gmailStatus = members.map((m) => {

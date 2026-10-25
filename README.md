@@ -60,7 +60,9 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    - `SUPABASE_SERVICE_ROLE_KEY` = la llave **service_role** (secreta; solo la usa el servidor para
      recibir las alertas)
    - `INGEST_HMAC_SECRET` = una frase larga y aleatoria, mínimo 32 caracteres (por ejemplo, la salida
-     de `openssl rand -base64 48`). Con ella se firman las alertas.
+     de `openssl rand -base64 48`). Protege los PIN de entrada.
+   - `ALERTS_HMAC_SECRET` = **otra** frase larga y aleatoria. Con ella se firman las alertas del
+     Apps Script. Se puede cambiar sin afectar los PIN (pero hay que actualizar el `SECRET` de cada script).
 3. **Deploy**. Al terminar te da una dirección tipo `https://finanzas-pareja.vercel.app`.
 4. De vuelta en Supabase: **Authentication → URL Configuration**:
    - **Site URL** = esa dirección.

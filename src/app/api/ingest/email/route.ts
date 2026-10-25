@@ -9,7 +9,7 @@ import { dedupeKey } from "@/domain/dedupe";
 import { applyInactiveAccount, classifyIncoming, findAccount, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
 import { parseBancolombiaEmail } from "@/domain/parsers/bancolombia-email";
 import { addDays } from "@/domain/recurring";
-import { deriveMemberKey, sha256, verifySignature } from "@/lib/hmac";
+import { alertsMasterSecret, deriveMemberKey, sha256, verifySignature } from "@/lib/hmac";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -40,8 +40,8 @@ function json(status: number, body: unknown) {
 }
 
 export async function POST(req: NextRequest) {
-  const master = process.env.INGEST_HMAC_SECRET;
-  if (!master || master.length < 32) return json(500, { error: "Servidor sin INGEST_HMAC_SECRET (mínimo 32 caracteres)" });
+  const master = alertsMasterSecret();
+  if (!master || master.length < 32) return json(500, { error: "Servidor sin ALERTS_HMAC_SECRET (mínimo 32 caracteres)" });
 
   const memberId = req.headers.get("x-member-id") ?? "";
   if (!z.string().uuid().safeParse(memberId).success) return json(401, { error: "No autorizado" });

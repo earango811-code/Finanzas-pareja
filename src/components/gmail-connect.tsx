@@ -5,7 +5,7 @@ import { useState } from "react";
 interface Props {
   webhookUrl: string;
   memberId: string;
-  secret: string | null; // null si el servidor no tiene INGEST_HMAC_SECRET
+  secret: string | null; // null si el servidor no tiene el secreto de alertas
   status: { name: string; lastAt: string | null; created: number; unknown: number }[];
   unknownSamples: { at: string; text: string }[];
 }
@@ -77,7 +77,7 @@ export function GmailConnect({ webhookUrl, memberId, secret, status, unknownSamp
             </>
           ) : (
             <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
-              Falta configurar <code>INGEST_HMAC_SECRET</code> y <code>SUPABASE_SERVICE_ROLE_KEY</code> en Vercel. Ver el README.
+              Falta configurar <code>ALERTS_HMAC_SECRET</code> y <code>SUPABASE_SERVICE_ROLE_KEY</code> en Vercel. Ver el README.
             </p>
           )}
           <ol start={4} className="list-decimal space-y-1 pl-5 text-xs">

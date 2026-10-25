@@ -24,10 +24,10 @@ En **Vercel → Settings → Environment Variables** deben estar, además de las
 | Variable | Dónde sale |
 |---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` (secreta) |
-| `INGEST_HMAC_SECRET` | Inventa una frase larga y aleatoria (mínimo 32 caracteres). Por ejemplo, genera una en una terminal con `openssl rand -base64 48` |
+| `ALERTS_HMAC_SECRET` | Inventa una frase larga y aleatoria (mínimo 32 caracteres). Por ejemplo, genera una en una terminal con `openssl rand -base64 48` |
 
 Después de agregarlas, vuelve a desplegar (Deployments → ⋯ → Redeploy). Cambiar
-`INGEST_HMAC_SECRET` más adelante invalida las claves de los dos (tendrían que copiarlas de nuevo).
+`ALERTS_HMAC_SECRET` más adelante invalida las claves de los dos (tendrían que copiarlas de nuevo al script).
 
 ## Paso a paso
 

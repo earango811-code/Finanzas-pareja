@@ -40,7 +40,11 @@ function hex_(bytes) {
 
 /** Envía un lote de mensajes firmado con HMAC-SHA256. Devuelve la respuesta parseada. */
 function enviar_(cfg, messages) {
-  var body = JSON.stringify({ messages: messages });
+  // Solo ASCII: tildes y ñ van como \uXXXX (JSON las lee igual). Así los bytes que
+  // se firman son exactamente los que recibe la app, sin líos de codificación.
+  var body = JSON.stringify({ messages: messages }).replace(/[\u007f-￿]/g, function (ch) {
+    return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4);
+  });
   var ts = String(Math.floor(Date.now() / 1000));
   var signature = hex_(Utilities.computeHmacSha256Signature(ts + '.' + body, cfg.secret, Utilities.Charset.UTF_8));
   var res = UrlFetchApp.fetch(cfg.url, {
