@@ -33,7 +33,7 @@ export default async function WelcomePage() {
       <h1 className="text-2xl font-bold">Bienvenido 👋</h1>
       <p className="muted mt-1 text-sm">
         Entraste como <b>{user.email}</b>. Si tu pareja ya creó el hogar con este correo, pídele que revise el
-        correo que puso. Si no, créalo aquí: cargamos las categorías y montos de su Excel (todo editable).
+        correo que puso. Si no, créalo aquí: cargamos sus categorías y un presupuesto inicial (todo editable).
       </p>
 
       <form action={createHousehold} className="mt-6 flex flex-col gap-4">

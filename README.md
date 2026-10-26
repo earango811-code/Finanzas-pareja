@@ -11,7 +11,7 @@ con una bandeja de "Pendientes por identificar" y el cálculo de **quién le deb
 
 | Fase | Qué incluye | Estado |
 |---|---|---|
-| 1. MVP | Login de los 2, categorías y presupuesto del Excel, registro manual con dictado, Pendientes, presupuesto vs real, 50/30/20, quién le debe a quién | ✅ Hecho |
+| 1. MVP | Login de los 2, categorías con subcategorías, presupuesto por categoría, registro manual con dictado, Pendientes, presupuesto vs real, 50/30/20, quién le debe a quién | ✅ Hecho |
 | 2. Correo Bancolombia | Lector de alertas probado con los formatos reales, webhook firmado (HMAC), Apps Script para Gmail, reglas automáticas, conciliación con recurrentes. Guía Android (opcional) | ✅ Hecho |
 | 3. Extractos y cierre | Importar CSV/Excel, conciliación por cuenta, cierre de mes congelado, exportar a Excel | ⏳ |
 | 4. Notificaciones y gráficos | Push al entrar un pendiente, alertas al 80 %, gráficos | ⏳ |
@@ -49,6 +49,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    5. `20261025000005_pin.sql`
    6. `20261025000006_bolsillos.sql`
    7. `20261025000007_mes_presupuesto.sql`
+   8. `20261025000008_categorias_definitivas.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
@@ -75,8 +76,8 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
 1. Uno de los dos abre la dirección en el computador → *¿Primera vez…? Entrar con enlace al correo*
    → abre el correo de Supabase **en ese mismo navegador** y toca *Sign in*.
 2. Llena el formulario de bienvenida: su nombre, ingreso, el nombre, **correo** e ingreso de la pareja,
-   y los descuentos fijos si hay (ej. cuota de especialización). Se cargan las categorías y montos
-   del Excel.
+   y los descuentos fijos si hay (ej. cuota de especialización). Se cargan las categorías y un presupuesto
+   inicial (todo editable).
 3. En **⚙️ Ajustes → Acceso con PIN**: crea tu PIN de 4 números y, abajo, *Crear el acceso* de tu
    pareja con un PIN inicial (se lo pasas en persona; ella lo puede cambiar).
 4. Desde ahí, los dos entran con **correo + PIN** en el computador y en el celular. Tras 5 intentos
@@ -125,22 +126,19 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
 
 ### Categorías y subcategorías
 
-El presupuesto se define en las categorías principales (las del Excel). Debajo hay subcategorías
-para clasificar más fino; lo gastado en ellas suma a su principal:
+El presupuesto se define a nivel de **categoría**; las subcategorías son solo para dar más detalle
+(lo gastado en ellas suma a su categoría):
 
-| Principal (con presupuesto) | Subcategorías |
-|---|---|
-| Mercado | Alimentos · Caramelos · Café |
-| Licor y chasers | Bebidas |
-| Servicios públicos | Agua · Electricidad |
-| Internet y celular | Internet · TV · Teléfono |
-| Transporte / gasolina | Gasolina · Parking · Uber · Reparar · Seguros de coche |
-| Salidas | Cine · Restaurante · Rumba · Comida |
-| Ahorro / inversión de pareja | Ahorros para emergencias · Ahorros para vacaciones · Inversiones |
-| Ingresos (no es gasto) | Salario · Prestaciones |
+| Categoría | Subcategorías | Presupuesto inicial |
+|---|---|---|
+| Comida y bebida | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.750.000 |
+| Gastos de casa | Agua · Electricidad · Internet · TV · Teléfono | $ 480.000 |
+| Ingresos (no es gasto) | Prestaciones · Salario | — |
+| Salidas | Cine · Restaurante v2 · Rumba | $ 1.500.000 |
+| Ahorros | Ahorros para emergencias · Ahorros para vacaciones · Inversiones | 100 % de lo que sobra |
+| Transporte | Combustible · Gasolina · Parking · Reparar · Seguros de coche · Uber | $ 400.000 |
 
-Empleada de servicio, Aseo de casa, Suscripciones, Cuidado personal, Imprevistos, Viajes y Ahorro
-individual no tienen subcategorías.
+Los montos son un punto de partida; se cambian en **⚙️ Ajustes → Presupuesto**.
 
 En **⚙️ Ajustes → 🏷️ Categorías** pueden crear categorías y subcategorías, renombrarlas, moverlas
 de una principal a otra, cambiar sus palabras clave del dictado, desactivarlas (dejan de salir al
@@ -176,7 +174,7 @@ Cada uno puede ser compartido o personal y tener una meta.
 ### Reglas de cálculo
 
 - % de reparto = (ingreso − descuentos fijos) de cada uno ÷ total. Es fijo hasta que lo editen.
-- El ahorro funciona como en el Excel: “% del resto” = (ingreso total − presupuestos fijos) × 50 %.
+- El ahorro funciona como “% del resto” = (ingreso total − presupuestos fijos) × el % que elijan.
 - Solo cuentan los movimientos **identificados**. Los reembolsos compartidos (ingreso compartido) restan.
 - Compras diferidas: se registran **completas** en la fecha de compra.
 - Compras con tarjeta de crédito cuentan en la fecha de **compra**; el pago de la tarjeta no es gasto.
