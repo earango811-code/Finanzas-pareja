@@ -8,7 +8,7 @@ export interface Visual {
 }
 
 const GROUPS: Record<string, Visual> = {
-  "Comida y bebida": { color: "var(--g-comida)", icon: "🍴" },
+  Mercado: { color: "var(--g-comida)", icon: "🛒" },
   "Gastos de casa": { color: "var(--g-casa)", icon: "🏠" },
   Ingresos: { color: "var(--g-ingresos)", icon: "💰" },
   Salidas: { color: "var(--g-salidas)", icon: "🎉" },
@@ -32,14 +32,11 @@ const CATEGORY_ICONS: Record<string, string> = {
   Cine: "🎬",
   "Restaurante v2": "🍷",
   Rumba: "🪩",
-  "Ahorros para emergencias": "⭐",
+  "Ahorros para imprevistos": "⭐",
   "Ahorros para vacaciones": "🏖️",
   Inversiones: "📈",
-  Combustible: "🛢️",
-  Gasolina: "⛽",
-  Parking: "🅿️",
-  Reparar: "🔧",
-  "Seguros de coche": "📄",
+  Combustible: "⛽",
+  "Gastos de carro": "🔧",
   Uber: "🚕",
 };
 

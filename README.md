@@ -50,6 +50,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    6. `20261025000006_bolsillos.sql`
    7. `20261025000007_mes_presupuesto.sql`
    8. `20261025000008_categorias_definitivas.sql`
+   9. `20261025000009_ajuste_categorias.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
@@ -131,14 +132,15 @@ El presupuesto se define a nivel de **categoría**; las subcategorías son solo 
 
 | Categoría | Subcategorías | Presupuesto inicial |
 |---|---|---|
-| Comida y bebida | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.750.000 |
+| Mercado | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.750.000 |
 | Gastos de casa | Agua · Electricidad · Internet · TV · Teléfono | $ 480.000 |
 | Ingresos (no es gasto) | Prestaciones · Salario | — |
 | Salidas | Cine · Restaurante v2 · Rumba | $ 1.500.000 |
-| Ahorros | Ahorros para emergencias · Ahorros para vacaciones · Inversiones | 100 % de lo que sobra |
-| Transporte | Combustible · Gasolina · Parking · Reparar · Seguros de coche · Uber | $ 400.000 |
+| Ahorros | Ahorros para imprevistos · Ahorros para vacaciones · Inversiones | 100 % de lo que sobra |
+| Transporte | Combustible · Uber · Gastos de carro | $ 400.000 |
 
-Los montos son un punto de partida; se cambian en **⚙️ Ajustes → Presupuesto**.
+La categoría es **opcional**: se puede clasificar directo en el grupo (por ejemplo, solo “Mercado”).
+Los montos son un punto de partida; se cambian en **Herramientas → Presupuesto por grupo**.
 
 En **⚙️ Ajustes → 🏷️ Categorías** pueden crear categorías y subcategorías, renombrarlas, moverlas
 de una principal a otra, cambiar sus palabras clave del dictado, desactivarlas (dejan de salir al

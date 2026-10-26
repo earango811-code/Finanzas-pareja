@@ -259,8 +259,10 @@ function Classifier({
   const options = scope ? categoriesFor(scope, categories, kind) : [];
   const pocketOptions = scope ? pocketsFor(scope, pockets, payerIds) : [];
   const chosenPocket = pocketOptions.some((p) => p.id === pocketId) ? pocketId : "";
-  // Atajos: las 8 más usadas que se pueden elegir directo (subcategorías o principales sin hijas).
-  const quick = options.filter((c) => !c.hasChildren).slice(0, 8);
+  // Atajos: primero los grupos (la categoría es opcional: "Mercado" basta) y luego las
+  // categorías más usadas.
+  const groupChips = options.filter((c) => !c.parentId);
+  const quick = [...groupChips, ...options.filter((c) => c.parentId).slice(0, 6)];
   const parents = options.filter((c) => !c.parentId);
   const childrenOf = (id: string) => options.filter((c) => c.parentId === id);
 
@@ -296,7 +298,7 @@ function Classifier({
           {!showAll ? (
             <div className="flex flex-wrap gap-2">
               {quick.map((c) => (
-                <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
+                <button key={c.id} className={`chip ${c.parentId ? "" : "font-semibold"}`} disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
                   <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                 </button>
               ))}
