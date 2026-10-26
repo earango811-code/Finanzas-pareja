@@ -61,6 +61,22 @@ export function monthLeftover(rows: BudgetRow[]): number {
 }
 
 /**
+ * Saldo con el que termina el mes cada grupo ligado a un bolsillo (Ahorro, Fondo de
+ * imprevistos, Viaje…): presupuesto − lo gastado en ese grupo. Nunca negativo.
+ */
+export function groupLeftovers(
+  rows: BudgetRow[],
+  links: { categoryId: string; pocketId: string }[],
+): { categoryId: string; pocketId: string; budgeted: number; spent: number; leftover: number }[] {
+  return links.map((l) => {
+    const r = rows.find((x) => x.categoryId === l.categoryId);
+    const budgeted = r?.budgeted ?? 0;
+    const spent = r?.spent ?? 0;
+    return { ...l, budgeted, spent, leftover: Math.max(0, budgeted - spent) };
+  });
+}
+
+/**
  * Un gasto compartido solo se puede pagar desde un bolsillo compartido; uno personal,
  * solo desde un bolsillo personal de quien pagó.
  */

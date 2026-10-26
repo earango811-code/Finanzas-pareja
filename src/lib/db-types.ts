@@ -45,6 +45,7 @@ export interface CategoryRow {
   aliases: string[];
   sort_order: number;
   is_active: boolean;
+  pocket_id: string | null; // grupo: bolsillo donde va su saldo a fin de mes
 }
 
 export interface BudgetRowDb {
@@ -111,5 +112,6 @@ export interface PocketMovementRow {
   amount: number;
   month: string | null;
   note: string | null;
+  category_id: string | null; // grupo del que salió el sobrante
   created_at: string;
 }

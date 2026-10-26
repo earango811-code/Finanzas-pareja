@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CatIcon } from "@/components/cat-icon";
 import { PageHeader } from "@/components/page-header";
-import { buildBudgetRows, summarizeGroups, type BudgetRow } from "@/domain/budget";
+import { budgetCoverage, buildBudgetRows, summarizeGroups, type BudgetRow } from "@/domain/budget";
 import { defaultMonth, isValidMonth, monthLabel } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
@@ -53,7 +53,11 @@ export default async function PresupuestoPage({
   const tab: Tab = sp.tab === "plan" || sp.tab === "analisis" ? sp.tab : "restante";
   const view = members.some((m) => m.id === sp.vista) ? sp.vista! : "compartido";
   const memberId = view === "compartido" ? null : view;
-  const { txs, budgets, pendingCount } = await loadMonth(ctx, month);
+  const [{ txs, budgets, pendingCount }, { data: pocketData }] = await Promise.all([
+    loadMonth(ctx, month),
+    ctx.supabase.from("pockets").select("id, name").eq("household_id", me.household_id).returns<{ id: string; name: string }[]>(),
+  ]);
+  const pocketName = new Map((pocketData ?? []).map((p) => [p.id, p.name]));
 
   const incomeBase =
     memberId === null ? members.reduce((a, m) => a + netIncome(m), 0) : netIncome(members.find((m) => m.id === memberId)!);
@@ -87,6 +91,16 @@ export default async function PresupuestoPage({
     else list.push({ id: c.id, name: c.name, amount: t.amount });
     breakdown.set(c.parent_id, list);
   }
+
+  const coverage = budgetCoverage(rows, incomeBase);
+  // Plan: todos los grupos de gasto (con o sin monto), los de ahorro al final
+  const budgetedById = new Map(rows.map((r) => [r.categoryId, r.budgeted]));
+  const planGroups = categories
+    .filter((c) => !c.parent_id && !c.is_income)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((c) => ({ ...c, budgeted: budgetedById.get(c.id) ?? 0 }));
+  const planSpend = planGroups.filter((g) => g.budget_group !== "ahorro");
+  const planSave = planGroups.filter((g) => g.budget_group === "ahorro");
 
   const sortRows = (a: BudgetRow, b: BudgetRow) => (catById.get(a.categoryId)?.sort_order ?? 999) - (catById.get(b.categoryId)?.sort_order ?? 999);
   const ordered = [...rows].sort(sortRows);
@@ -180,22 +194,65 @@ export default async function PresupuestoPage({
 
         {tab === "plan" && (
           <>
+            <section className="card flex flex-col gap-2 p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="font-semibold">{memberId === null ? "Ingresos de los dos" : "Ingreso"}</h2>
+                <span className="tabular font-bold">{formatCOP(coverage.income)}</span>
+              </div>
+              <div className="flex h-2.5 overflow-hidden rounded-full bg-[var(--line)]" role="img" aria-label={`Asignado ${formatPct(coverage.ratio, 0)} del ingreso`}>
+                <div className="h-full bg-[var(--color-brand)]" style={{ width: `${coverage.income > 0 ? Math.min(100, (coverage.spending / coverage.income) * 100) : 0}%` }} />
+                <div className="h-full border-l-2 border-[var(--card)] bg-[var(--g-ahorros)]" style={{ width: `${coverage.income > 0 ? Math.min(100, (coverage.saving / coverage.income) * 100) : 0}%` }} />
+              </div>
+              <div className="flex flex-wrap justify-between gap-x-3 text-xs">
+                <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[var(--color-brand)]" />Gastos {formatCOP(coverage.spending)}</span>
+                <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-[var(--g-ahorros)]" />Ahorro {formatCOP(coverage.saving)}</span>
+              </div>
+              <p
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  coverage.unassigned === 0 ? "bg-emerald-50 text-emerald-800" : coverage.unassigned > 0 ? "bg-amber-50 text-amber-900" : "bg-red-50 text-red-800"
+                }`}
+              >
+                {coverage.unassigned === 0
+                  ? "✓ El presupuesto cubre el 100 % del ingreso."
+                  : coverage.unassigned > 0
+                    ? `Faltan ${formatCOP(coverage.unassigned)} por asignar (${formatPct(coverage.ratio, 0)} asignado).`
+                    : `El presupuesto se pasa del ingreso por ${formatCOP(-coverage.unassigned)}.`}
+              </p>
+            </section>
+
             <ul className="card overflow-hidden">
-              {ordered
-                .filter((r) => r.budgeted > 0)
-                .map((r) => (
-                  <li key={r.categoryId} className="list-row">
-                    <CatIcon visual={visualFor(r.categoryId, allCategories)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{r.name}</span>
-                      <span className="muted text-xs">{BUDGET_GROUP_LABEL[r.group]}</span>
-                    </span>
-                    <span className="tabular font-semibold">{formatCOP(r.budgeted)}</span>
-                  </li>
-                ))}
+              {planSpend.map((g) => (
+                <li key={g.id} className="list-row">
+                  <CatIcon visual={visualFor(g.id, allCategories)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{g.name}</span>
+                    <span className="muted text-xs">{BUDGET_GROUP_LABEL[g.budget_group!]}</span>
+                  </span>
+                  <span className={`tabular ${g.budgeted > 0 ? "font-semibold" : "muted text-xs"}`}>{g.budgeted > 0 ? formatCOP(g.budgeted) : "Sin asignar"}</span>
+                </li>
+              ))}
               <li className="list-row">
                 <span className="flex-1 font-semibold">Total para gastar</span>
-                <span className="tabular font-bold">{formatCOP(totalBudget)}</span>
+                <span className="tabular font-bold">{formatCOP(coverage.spending)}</span>
+              </li>
+            </ul>
+
+            <ul className="card overflow-hidden">
+              {planSave.map((g) => (
+                <li key={g.id} className="list-row">
+                  <CatIcon visual={visualFor(g.id, allCategories)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{g.name}</span>
+                    <span className="muted text-xs">
+                      {g.pocket_id ? `A fin de mes, lo que sobre → 🐷 ${pocketName.get(g.pocket_id) ?? "bolsillo"}` : "Ahorro"}
+                    </span>
+                  </span>
+                  <span className={`tabular ${g.budgeted > 0 ? "font-semibold" : "muted text-xs"}`}>{g.budgeted > 0 ? formatCOP(g.budgeted) : "Sin asignar"}</span>
+                </li>
+              ))}
+              <li className="list-row">
+                <span className="flex-1 font-semibold">Total ahorro</span>
+                <span className="tabular font-bold">{formatCOP(coverage.saving)}</span>
               </li>
             </ul>
             <Link href="/ajustes#presupuesto" className="btn btn-ghost">

@@ -1,8 +1,8 @@
 import { PageHeader } from "@/components/page-header";
-import { PocketsManager, type LeftoverInfo, type PocketView } from "@/components/pockets-manager";
+import { PocketsManager, type GroupClose, type LeftoverInfo, type PocketView } from "@/components/pockets-manager";
 import { buildBudgetRows } from "@/domain/budget";
 import { currentMonth, isValidMonth, monthLabel, shiftMonth, todayBogota } from "@/domain/dates";
-import { monthLeftover, pocketSummary } from "@/domain/pockets";
+import { groupLeftovers, monthLeftover, pocketSummary } from "@/domain/pockets";
 import { netIncome } from "@/domain/types";
 import type { PocketMovementRow, PocketRow, TransactionRow } from "@/lib/db-types";
 import { getHousehold } from "@/lib/household";
@@ -69,10 +69,25 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
     const rows = buildBudgetRows({ lines: monthData.budgets, categories, txs: monthData.txs, incomeBase: s.income, memberId: s.key });
     const pocketIds = new Set((pocketsRes.data ?? []).filter((p) => p.owner_member_id === s.key).map((p) => p.id));
     const alreadyMoved = movements
-      .filter((m) => m.kind === "sobrante" && m.month === leftoverMonth && pocketIds.has(m.pocket_id))
+      .filter((m) => m.kind === "sobrante" && m.month === leftoverMonth && !m.category_id && pocketIds.has(m.pocket_id))
       .reduce((a, m) => a + m.amount, 0);
     return { ownerMemberId: s.key, label: s.label, leftover: monthLeftover(rows), alreadyMoved, hasBudget: rows.some((r) => r.budgeted > 0) };
   });
+
+  // Cierre del mes: el saldo de cada grupo de ahorro (Ahorro, Fondo de imprevistos, Viaje) va a su bolsillo
+  const sharedRows = buildBudgetRows({ lines: monthData.budgets, categories, txs: monthData.txs, incomeBase: totalIncome, memberId: null });
+  const links = categories
+    .filter((c) => !c.parent_id && c.pocket_id)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((c) => ({ categoryId: c.id, pocketId: c.pocket_id! }));
+  const groupCloses: GroupClose[] = groupLeftovers(sharedRows, links).map((g) => ({
+    ...g,
+    groupName: categories.find((c) => c.id === g.categoryId)!.name,
+    pocketName: (pocketsRes.data ?? []).find((p) => p.id === g.pocketId)?.name ?? "Bolsillo",
+    alreadyMoved: movements
+      .filter((m) => m.kind === "sobrante" && m.month === leftoverMonth && m.category_id === g.categoryId)
+      .reduce((a, m) => a + m.amount, 0),
+  }));
 
   return (
     <>
@@ -80,6 +95,7 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
       <PocketsManager
         pockets={pockets}
         leftovers={beforeStart ? [] : leftovers.filter((l) => l.hasBudget)}
+        groupCloses={beforeStart ? [] : groupCloses}
         leftoverMonth={leftoverMonth}
         leftoverMonthLabel={monthLabel(leftoverMonth)}
         today={todayBogota()}

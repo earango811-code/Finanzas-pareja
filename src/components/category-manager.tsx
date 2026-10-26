@@ -29,7 +29,17 @@ function useAction() {
   return { busy, run, feedback };
 }
 
-export function CategoryManager({ categories, counts }: { categories: CategoryRow[]; counts: Record<string, number> }) {
+type PocketOption = { id: string; name: string };
+
+export function CategoryManager({
+  categories,
+  counts,
+  pockets,
+}: {
+  categories: CategoryRow[];
+  counts: Record<string, number>;
+  pockets: PocketOption[];
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null); // id de la principal, o "root"
 
@@ -48,13 +58,13 @@ export function CategoryManager({ categories, counts }: { categories: CategoryRo
         <span className={`min-w-0 flex-1 truncate ${isChild ? "" : "text-lg font-semibold"}`}>{c.name}</span>
         {!isChild && (
           <span className="muted shrink-0 text-[11px]">
-            {c.is_income ? "Ingreso" : `${BUDGET_GROUP_LABEL[c.budget_group!]} · ${SCOPE_LABEL[c.scope]}`}
+            {c.is_income ? "Ingreso" : c.pocket_id ? `→ 🐷 ${pockets.find((p) => p.id === c.pocket_id)?.name ?? "bolsillo"}` : `${BUDGET_GROUP_LABEL[c.budget_group!]} · ${SCOPE_LABEL[c.scope]}`}
           </span>
         )}
         {counts[c.id] ? <span className="muted shrink-0 text-[11px]">{counts[c.id]} mov.</span> : null}
       </button>
       {editing === c.id && (
-        <CategoryEditor category={c} categories={categories} count={counts[c.id] ?? 0} onDone={() => setEditing(null)} />
+        <CategoryEditor category={c} categories={categories} pockets={pockets} count={counts[c.id] ?? 0} onDone={() => setEditing(null)} />
       )}
     </li>
   );
@@ -107,11 +117,13 @@ export function CategoryManager({ categories, counts }: { categories: CategoryRo
 function CategoryEditor({
   category,
   categories,
+  pockets,
   count,
   onDone,
 }: {
   category: CategoryRow;
   categories: CategoryRow[];
+  pockets: PocketOption[];
   count: number;
   onDone: () => void;
 }) {
@@ -120,6 +132,7 @@ function CategoryEditor({
   const [scope, setScope] = useState<CategoryScope>(category.scope);
   const [group, setGroup] = useState<BudgetGroup | null>(category.budget_group);
   const [aliases, setAliases] = useState(category.aliases.join(", "));
+  const [pocketId, setPocketId] = useState(category.pocket_id ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reassignTo, setReassignTo] = useState("");
   const { busy, run, feedback } = useAction();
@@ -166,6 +179,18 @@ function CategoryEditor({
         </div>
       )}
 
+      {!parentId && !category.is_income && (
+        <label className="flex flex-col gap-1 text-xs">
+          Al cerrar el mes, lo que le sobre va al bolsillo
+          <select className="input" value={pocketId} onChange={(e) => setPocketId(e.target.value)}>
+            <option value="">— Ninguno —</option>
+            {pockets.map((p) => (
+              <option key={p.id} value={p.id}>🐷 {p.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="flex flex-col gap-1 text-xs">
         Palabras clave (para el dictado), separadas por coma
         <input className="input" placeholder="uber, didi, taxi" value={aliases} onChange={(e) => setAliases(e.target.value)} />
@@ -184,6 +209,7 @@ function CategoryEditor({
                 scope,
                 budget_group: group,
                 aliases: aliases.split(",").map((a) => a.trim()).filter(Boolean),
+                pocket_id: parentId ? null : pocketId || null,
               }),
             onDone,
           )

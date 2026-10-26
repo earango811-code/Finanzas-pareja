@@ -545,6 +545,7 @@ const categoryUpdateSchema = z.object({
   scope: z.enum(["compartida", "personal", "ambas"]),
   budget_group: z.enum(["necesidades", "deseos", "ahorro"]).nullable(),
   aliases: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(30),
+  pocket_id: uuid.nullable().optional(), // solo grupos: bolsillo al que va su saldo a fin de mes
 });
 
 export async function updateCategory(input: z.input<typeof categoryUpdateSchema>): Promise<ActionResult> {
@@ -566,10 +567,11 @@ export async function updateCategory(input: z.input<typeof categoryUpdateSchema>
       const { count } = await supabase.from("budgets").select("id", { count: "exact", head: true }).eq("category_id", p.id);
       if (count) throw new Error("Tiene presupuesto asignado: quítalo antes de convertirla en subcategoría");
       // La subcategoría hereda de su principal
-      fields = { ...fields, parent_id: parent.id, scope: parent.scope, budget_group: parent.budget_group, is_income: parent.is_income };
+      fields = { ...fields, parent_id: parent.id, scope: parent.scope, budget_group: parent.budget_group, is_income: parent.is_income, pocket_id: null };
     } else {
       if (!current.is_income && !p.budget_group) throw new Error("Elige el grupo (Necesidades, Deseos o Ahorro)");
       fields = { ...fields, parent_id: null, scope: p.scope, budget_group: current.is_income ? null : p.budget_group };
+      if (p.pocket_id !== undefined) fields.pocket_id = current.is_income ? null : p.pocket_id;
     }
 
     const { error } = await supabase.from("categories").update(fields).eq("id", p.id);
@@ -792,6 +794,7 @@ const movementSchema = z.object({
   date: isoDate,
   month: z.string().regex(/^\d{4}-\d{2}$/).nullable().default(null),
   note: z.string().trim().max(120).nullable().default(null),
+  categoryId: uuid.nullable().default(null), // sobrante de un grupo (Ahorro, Viaje…)
 });
 
 /** Aporte, retiro o paso del sobrante de un mes a un bolsillo. */
@@ -808,6 +811,7 @@ export async function addPocketMovement(input: z.input<typeof movementSchema>): 
       occurred_on: p.date,
       month: p.kind === "sobrante" ? p.month : null,
       note: p.note,
+      category_id: p.kind === "sobrante" ? p.categoryId : null,
     });
     if (error) throw new Error(error.message);
     refresh();

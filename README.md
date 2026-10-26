@@ -51,6 +51,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    7. `20261025000007_mes_presupuesto.sql`
    8. `20261025000008_categorias_definitivas.sql`
    9. `20261025000009_ajuste_categorias.sql`
+   10. `20261026000010_grupos_y_ahorro_a_bolsillos.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
@@ -130,15 +131,23 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
 El presupuesto se define a nivel de **categoría**; las subcategorías son solo para dar más detalle
 (lo gastado en ellas suma a su categoría):
 
-| Categoría | Subcategorías | Presupuesto inicial |
+| Grupo | Categorías | Presupuesto inicial |
 |---|---|---|
 | Mercado | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.750.000 |
-| Gastos de casa | Agua · Electricidad · Internet · TV · Teléfono | $ 480.000 |
-| Ingresos (no es gasto) | Prestaciones · Salario | — |
-| Salidas | Cine · Restaurante v2 · Rumba | $ 1.500.000 |
-| Ahorros | Ahorros para imprevistos · Ahorros para vacaciones · Inversiones | 100 % de lo que sobra |
+| Servicios | Agua · Luz · Internet · Gas · General | $ 480.000 |
+| Gastos de casa | TV · Teléfono | — |
 | Transporte | Combustible · Uber · Gastos de carro | $ 400.000 |
+| Empleada de servicio | General | — |
+| Cuidado personal | Aseo personal · Skincare · Otros | — |
+| Salidas | Cine · Restaurante v2 · Rumba | $ 1.500.000 |
+| Bebidas alcohólicas | Vino · Cerveza · Tequila · Whisky · Otros | — |
+| Suscripciones | Streaming · Almacenamiento · Otros | — |
+| Ahorro → 🐷 Ahorro | Inversiones | 100 % de lo que sobra |
+| Fondo de imprevistos → 🐷 Fondo de imprevistos | — | — |
+| Viaje → 🐷 Viaje | — | — |
+| Ingresos | Prestaciones · Salario | — |
 
+Los grupos de ahorro van al final del presupuesto y, al cerrar el mes, lo que les sobra se pasa a su bolsillo (🐷 Bolsillos → Cierre del mes). La pestaña **Plan** muestra si el presupuesto cubre el 100 % de los ingresos.
 La categoría es **opcional**: se puede clasificar directo en el grupo (por ejemplo, solo “Mercado”).
 Los montos son un punto de partida; se cambian en **Herramientas → Presupuesto por grupo**.
 

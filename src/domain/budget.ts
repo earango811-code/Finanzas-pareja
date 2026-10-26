@@ -157,3 +157,20 @@ export function summarizeGroups(
     };
   });
 }
+
+export interface BudgetCoverage {
+  income: number;
+  spending: number; // grupos de gasto
+  saving: number; // grupos de ahorro (van a bolsillos)
+  assigned: number; // spending + saving
+  unassigned: number; // income − assigned (negativo = se pasaron)
+  ratio: number; // assigned / income
+}
+
+/** Cuánto del ingreso cubre el presupuesto: la meta es asignar el 100 %. */
+export function budgetCoverage(rows: BudgetRow[], income: number): BudgetCoverage {
+  const saving = rows.filter((r) => r.group === "ahorro").reduce((a, r) => a + r.budgeted, 0);
+  const spending = rows.filter((r) => r.group !== "ahorro").reduce((a, r) => a + r.budgeted, 0);
+  const assigned = saving + spending;
+  return { income, spending, saving, assigned, unassigned: income - assigned, ratio: income > 0 ? assigned / income : 0 };
+}

@@ -28,9 +28,22 @@ export interface LeftoverInfo {
   hasBudget: boolean;
 }
 
+/** Grupo de ahorro cuyo saldo del mes va a su bolsillo. */
+export interface GroupClose {
+  categoryId: string;
+  groupName: string;
+  pocketId: string;
+  pocketName: string;
+  budgeted: number;
+  spent: number;
+  leftover: number;
+  alreadyMoved: number;
+}
+
 interface Props {
   pockets: PocketView[];
   leftovers: LeftoverInfo[];
+  groupCloses: GroupClose[];
   leftoverMonth: string;
   leftoverMonthLabel: string;
   today: string;
@@ -52,7 +65,7 @@ function useAction() {
   return { busy, run, feedback };
 }
 
-export function PocketsManager({ pockets, leftovers, leftoverMonth, leftoverMonthLabel, today, meId, members }: Props) {
+export function PocketsManager({ pockets, leftovers, groupCloses, leftoverMonth, leftoverMonthLabel, today, meId, members }: Props) {
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const active = pockets.filter((p) => p.is_active);
@@ -73,6 +86,24 @@ export function PocketsManager({ pockets, leftovers, leftoverMonth, leftoverMont
         <section className="card flex items-center justify-between p-4">
           <span className="muted text-sm">Total en bolsillos</span>
           <span className="tabular text-xl font-bold text-[var(--color-brand)]">{formatCOP(total)}</span>
+        </section>
+      )}
+
+      {groupCloses.length > 0 && (
+        <section className="card flex flex-col gap-3 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">
+              Cierre de <span className="capitalize">{leftoverMonthLabel}</span>: ahorro a bolsillos
+            </h2>
+            <span className="flex gap-3 text-sm">
+              <Link href={`/bolsillos?mes=${shiftMonth(leftoverMonth, -1)}`} aria-label="Mes anterior">‹</Link>
+              <Link href={`/bolsillos?mes=${shiftMonth(leftoverMonth, 1)}`} aria-label="Mes siguiente">›</Link>
+            </span>
+          </div>
+          <p className="muted text-xs">Lo que le quedó a cada grupo de ahorro al terminar el mes pasa a su bolsillo.</p>
+          {groupCloses.map((g) => (
+            <GroupCloseRow key={`${g.categoryId}-${leftoverMonth}`} info={g} month={leftoverMonth} today={today} />
+          ))}
         </section>
       )}
 
@@ -152,6 +183,49 @@ export function PocketsManager({ pockets, leftovers, leftoverMonth, leftoverMont
           </ul>
         </details>
       )}
+    </div>
+  );
+}
+
+function GroupCloseRow({ info, month, today }: { info: GroupClose; month: string; today: string }) {
+  const remaining = Math.max(0, info.leftover - info.alreadyMoved);
+  const [amount, setAmount] = useState<number | null>(remaining || null);
+  const { busy, run, feedback } = useAction();
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-[var(--bg)] p-3 text-sm">
+      <div className="flex justify-between gap-2">
+        <span className="min-w-0 truncate">
+          {info.groupName} → 🐷 {info.pocketName}
+        </span>
+        <span className="tabular shrink-0 font-semibold">{formatCOP(info.leftover)}</span>
+      </div>
+      <p className="muted text-xs">
+        Presupuesto {formatCOP(info.budgeted)}
+        {info.spent > 0 && ` · gastado ${formatCOP(info.spent)}`}
+        {info.alreadyMoved > 0 && ` · ya pasaron ${formatCOP(info.alreadyMoved)}`}
+      </p>
+      {info.leftover === 0 ? (
+        <p className="muted text-xs">{info.budgeted === 0 ? "Este grupo no tiene presupuesto ese mes." : "No le quedó saldo."}</p>
+      ) : remaining > 0 ? (
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <MoneyInput value={amount} onValueChange={setAmount} />
+          <button
+            className="btn btn-primary"
+            disabled={busy || !amount}
+            onClick={() =>
+              run(() =>
+                addPocketMovement({ pocketId: info.pocketId, kind: "sobrante", amount: amount!, date: today, month, note: null, categoryId: info.categoryId }),
+              )
+            }
+          >
+            Pasar
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-emerald-700">✓ Ya pasó a {info.pocketName}.</p>
+      )}
+      {feedback}
     </div>
   );
 }
