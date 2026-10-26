@@ -18,10 +18,11 @@ const SECTIONS: { title: string; items: { href: string; icon: string; color: str
   {
     title: "Configuración",
     items: [
+      { href: "/ingresos", icon: "💵", color: "var(--g-ingresos)", label: "Ingresos", hint: "Lo de cada uno y el % con que se reparten los gastos" },
       { href: "/ajustes/categorias", icon: "🏷️", color: "var(--g-salidas)", label: "Grupos y categorías", hint: "Crear, renombrar, mover" },
       { href: "/ajustes#presupuesto", icon: "◔", color: "var(--g-comida)", label: "Presupuesto por grupo", hint: "Montos de cada grupo" },
       { href: "/ajustes#cuentas", icon: "💳", color: "var(--g-transporte)", label: "Cuentas y tarjetas", hint: "Últimos 4 dígitos de cada una" },
-      { href: "/ajustes#pin", icon: "🔑", color: "var(--g-casa)", label: "Ingresos, PIN y Gmail", hint: "Reparto, acceso y alertas del banco" },
+      { href: "/ajustes#pin", icon: "🔑", color: "var(--g-casa)", label: "PIN y Gmail", hint: "Acceso y alertas del banco" },
     ],
   },
 ];

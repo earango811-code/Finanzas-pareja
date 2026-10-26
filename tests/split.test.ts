@@ -79,3 +79,18 @@ describe("computeSettlement", () => {
     expect(r.transfer).toBeNull();
   });
 });
+
+describe("reparto proporcional al ingreso disponible", () => {
+  it("ingreso 100: 60 de Esteban y 40 de Mariana → 60 % y 40 %", () => {
+    const members = [
+      { id: "esteban", display_name: "Esteban", monthly_income: 60, income_deductions: 0 },
+      { id: "mariana", display_name: "Mariana", monthly_income: 50, income_deductions: 10 },
+    ];
+    expect(splitShares(members).map((s) => s.ratio)).toEqual([0.6, 0.4]);
+    const r = computeSettlement(members, [
+      { amount: 100_000, kind: "gasto", scope: "compartido", status: "identificado", paid_by_member_id: "esteban" },
+    ]);
+    expect(r.balances.map((b) => b.owes)).toEqual([60_000, 40_000]);
+    expect(r.transfer).toEqual({ from: "mariana", to: "esteban", amount: 40_000 });
+  });
+});

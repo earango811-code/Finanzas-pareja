@@ -251,6 +251,37 @@ export async function registerSettlement(input: z.input<typeof settleSchema>): P
 // Ajustes
 // ---------------------------------------------------------------------------
 
+const incomesSchema = z
+  .array(
+    z.object({
+      id: uuid,
+      monthly_income: pesos,
+      income_deductions: pesos,
+      deductions_note: z.string().trim().max(120).nullable(),
+    }),
+  )
+  .min(1)
+  .max(2);
+
+/** Ingresos de los dos de una vez: de ahí sale el % de reparto de los gastos compartidos. */
+export async function updateIncomes(input: z.input<typeof incomesSchema>): Promise<ActionResult> {
+  try {
+    const list = incomesSchema.parse(input);
+    const { supabase, members } = await getHousehold();
+    for (const m of list) {
+      if (!members.some((x) => x.id === m.id)) throw new Error("Miembro inválido");
+      if (m.income_deductions > m.monthly_income) throw new Error("Los descuentos no pueden ser mayores que el ingreso");
+      const { id, ...fields } = m;
+      const { error } = await supabase.from("members").update(fields).eq("id", id);
+      if (error) throw new Error(error.message);
+    }
+    refresh();
+    return { ok: true, message: "Ingresos guardados: el reparto ya usa los nuevos %" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 const memberSchema = z.object({
   id: uuid,
   display_name: z.string().trim().min(1).max(40),
