@@ -959,6 +959,7 @@ select public.seed_categories_v3(id, false) from public.households;
 
 -- Grupos nuevos y ahorro dentro del presupuesto:
 --   * Servicios (Agua, Luz, Internet, Gas, General) sale de Gastos de casa, con su presupuesto.
+--   * Gastos de casa pasa a llamarse Aseo de casa.
 --   * Bebidas alcohólicas, Empleada de servicio, Suscripciones y Cuidado personal son grupos.
 --   * Ahorro, Fondo de imprevistos y Viaje son grupos del presupuesto (al final). Lo que les
 --     sobre al cerrar el mes se pasa a su bolsillo (categories.pocket_id).
@@ -994,7 +995,32 @@ begin
 end $$;
 revoke execute on function public.upsert_category(uuid, uuid, text, budget_group, boolean, int, text[]) from public, anon, authenticated;
 
--- 4) Lista definitiva de grupos y categorías
+-- 4) Montos del presupuesto compartido por grupo (crea o actualiza)
+create or replace function public.apply_default_budgets(hid uuid) returns void
+  language sql security definer set search_path = public as $$
+  insert into budgets (household_id, category_id, member_id, mode, amount, remainder_share)
+  select hid, c.id, null, v.mode::budget_mode, v.amount, v.share
+    from (values
+      ('Servicios',            'fijo',  480000,  0),
+      ('Mercado',              'fijo',  1500000, 0),
+      ('Bebidas alcohólicas',  'fijo',  250000,  0),
+      ('Transporte',           'fijo',  400000,  0),
+      ('Empleada de servicio', 'fijo',  400000,  0),
+      ('Aseo de casa',         'fijo',  150000,  0),
+      ('Salidas',              'fijo',  1500000, 0),
+      ('Suscripciones',        'fijo',  40000,   0),
+      ('Cuidado personal',     'fijo',  250000,  0),
+      ('Fondo de imprevistos', 'fijo',  200000,  0),
+      ('Viaje',                'fijo',  1000000, 0),
+      ('Ahorro',               'resto', 0,       1)
+    ) as v(name, mode, amount, share)
+    join categories c on c.household_id = hid and c.name = v.name and c.parent_id is null
+  on conflict (category_id, coalesce(member_id, '00000000-0000-0000-0000-000000000000'::uuid))
+  do update set mode = excluded.mode, amount = excluded.amount, remainder_share = excluded.remainder_share;
+$$;
+revoke execute on function public.apply_default_budgets(uuid) from public, anon, authenticated;
+
+-- 5) Lista definitiva de grupos y categorías
 create or replace function public.seed_categories_v3(hid uuid, reset_budgets boolean default true) returns void
   language plpgsql security definer set search_path = public as $$
 declare
@@ -1028,6 +1054,10 @@ begin
     update budgets set category_id = serv
      where category_id = casa and member_id is null
        and not exists (select 1 from budgets b where b.category_id = serv and b.member_id is null);
+    -- TV y Teléfono ya no van en la casa: TV → Suscripciones › Streaming, Teléfono → Servicios › General
+    update categories set name = 'Aseo de casa'
+     where id = casa
+       and not exists (select 1 from categories where household_id = hid and parent_id is null and name = 'Aseo de casa');
   end if;
 
   -- b) Grupos (los de ahorro al final; Ingresos aparte)
@@ -1035,12 +1065,12 @@ begin
     select * from (values
       ('Mercado',              'necesidades', false, 1),
       ('Servicios',            'necesidades', false, 2),
-      ('Gastos de casa',       'necesidades', false, 3),
+      ('Aseo de casa',         'necesidades', false, 3),
       ('Transporte',           'necesidades', false, 4),
       ('Empleada de servicio', 'necesidades', false, 5),
-      ('Cuidado personal',     'necesidades', false, 6),
+      ('Bebidas alcohólicas',  'necesidades', false, 6),
       ('Salidas',              'deseos',      false, 7),
-      ('Bebidas alcohólicas',  'deseos',      false, 8),
+      ('Cuidado personal',     'deseos',      false, 8),
       ('Suscripciones',        'deseos',      false, 9),
       ('Ahorro',               'ahorro',      false, 20),
       ('Fondo de imprevistos', 'ahorro',      false, 21),
@@ -1050,7 +1080,8 @@ begin
   loop
     perform upsert_category(hid, null, g.name, g.grp::budget_group, g.income, g.ord,
       case g.name
-        when 'Empleada de servicio' then array['empleada','aseo casa','servicio domestico']
+        when 'Empleada de servicio' then array['empleada','servicio domestico']
+        when 'Aseo de casa' then array['aseo','limpieza','detergente','jabon loza','escoba']
         when 'Fondo de imprevistos' then array['imprevisto','imprevistos','emergencia']
         when 'Viaje' then array['viaje','vacaciones','hotel','tiquetes','vuelo']
         when 'Ahorro' then array['ahorro']
@@ -1069,9 +1100,8 @@ begin
       ('Servicios',            'Luz',             array['luz','energia','electricidad','epm'], 2),
       ('Servicios',            'Internet',        array['internet','fibra'], 3),
       ('Servicios',            'Gas',             array['gas','vanti'], 4),
-      ('Servicios',            'General',         array['servicios','servicios publicos'], 5),
-      ('Gastos de casa',       'TV',              array['tv','television','directv'], 1),
-      ('Gastos de casa',       'Teléfono',        array['celular','telefono','claro','tigo','movistar'], 2),
+      ('Servicios',            'General',         array['servicios','servicios publicos','celular','telefono','claro','tigo','movistar'], 5),
+      ('Aseo de casa',         'General',         '{}'::text[], 1),
       ('Transporte',           'Combustible',     array['combustible','gasolina','acpm','terpel','primax','texaco'], 1),
       ('Transporte',           'Uber',            array['uber','didi','taxi','cabify','indrive'], 2),
       ('Transporte',           'Gastos de carro', array['parqueadero','parking','peaje','taller','mecanico','reparacion','llantas','soat','seguro','lavado'], 3),
@@ -1087,7 +1117,7 @@ begin
       ('Bebidas alcohólicas',  'Tequila',         array['tequila'], 3),
       ('Bebidas alcohólicas',  'Whisky',          array['whisky','whisqui'], 4),
       ('Bebidas alcohólicas',  'Otros',           array['licor','licores','trago','ron','aguardiente','ginebra'], 5),
-      ('Suscripciones',        'Streaming',       array['netflix','spotify','disney','hbo','max','prime video','youtube'], 1),
+      ('Suscripciones',        'Streaming',       array['netflix','spotify','disney','hbo','max','prime video','youtube','tv','directv'], 1),
       ('Suscripciones',        'Almacenamiento',  array['icloud','google one','dropbox'], 2),
       ('Suscripciones',        'Otros',           array['suscripcion','chatgpt','claude'], 3),
       ('Ahorro',               'Inversiones',     array['inversion','acciones','fondo','cdt'], 1),
@@ -1100,18 +1130,28 @@ begin
     perform upsert_category(hid, g.id, r.name, g.budget_group, g.is_income, g.sort_order * 100 + r.ord, r.aliases);
   end loop;
 
+  -- c2) TV y Teléfono de la casa: sus movimientos pasan a Streaming y a Servicios › General
+  update transactions set category_id = (select k.id from categories k join categories p on p.id = k.parent_id
+                                          where p.household_id = hid and p.name = 'Suscripciones' and k.name = 'Streaming')
+   where category_id in (select k.id from categories k join categories p on p.id = k.parent_id
+                          where p.household_id = hid and p.name = 'Aseo de casa' and k.name = 'TV');
+  update transactions set category_id = (select k.id from categories k join categories p on p.id = k.parent_id
+                                          where p.household_id = hid and p.name = 'Servicios' and k.name = 'General')
+   where category_id in (select k.id from categories k join categories p on p.id = k.parent_id
+                          where p.household_id = hid and p.name = 'Aseo de casa' and k.name = 'Teléfono');
+
   -- d) Lo que no está en la lista: sus movimientos vuelven a Pendientes y se borra
   create temp table if not exists _final_cats (parent text, name text) on commit drop;
   delete from _final_cats;
   insert into _final_cats
-  select null, name from (values ('Mercado'),('Servicios'),('Gastos de casa'),('Transporte'),('Empleada de servicio'),
+  select null, name from (values ('Mercado'),('Servicios'),('Aseo de casa'),('Transporte'),('Empleada de servicio'),
     ('Cuidado personal'),('Salidas'),('Bebidas alcohólicas'),('Suscripciones'),('Ahorro'),('Fondo de imprevistos'),
     ('Viaje'),('Ingresos')) v(name)
   union all
   select p, n from (values
     ('Mercado','Alimentos'),('Mercado','Bebidas'),('Mercado','Café'),('Mercado','Caramelos'),('Mercado','Comida'),
     ('Servicios','Agua'),('Servicios','Luz'),('Servicios','Internet'),('Servicios','Gas'),('Servicios','General'),
-    ('Gastos de casa','TV'),('Gastos de casa','Teléfono'),
+    ('Aseo de casa','General'),
     ('Transporte','Combustible'),('Transporte','Uber'),('Transporte','Gastos de carro'),
     ('Empleada de servicio','General'),
     ('Cuidado personal','Aseo personal'),('Cuidado personal','Skincare'),('Cuidado personal','Otros'),
@@ -1157,22 +1197,14 @@ begin
     end if;
   end loop;
 
-  -- f) Presupuesto inicial por grupo (solo hogares nuevos). Ahorro se queda con lo que sobre
-  --    del ingreso, así el presupuesto cubre el 100 %.
+  -- f) Presupuesto por grupo (el de la hoja "Presupuesto" del Excel de la pareja). Ahorro se
+  --    queda con lo que sobre del ingreso, así el presupuesto cubre el 100 %.
   if reset_budgets then
     delete from budgets where household_id = hid and member_id is null;
-    insert into budgets (household_id, category_id, member_id, mode, amount, remainder_share)
-    select hid, c.id, null, v.mode::budget_mode, v.amount, v.share
-      from (values
-        ('Mercado',    'fijo',  1750000, 0),
-        ('Servicios',  'fijo',  480000,  0),
-        ('Salidas',    'fijo',  1500000, 0),
-        ('Transporte', 'fijo',  400000,  0),
-        ('Ahorro',     'resto', 0,       1)
-      ) as v(name, mode, amount, share)
-      join categories c on c.household_id = hid and c.name = v.name and c.parent_id is null;
   end if;
+  perform public.apply_default_budgets(hid);
 end $$;
 revoke execute on function public.seed_categories_v3(uuid, boolean) from public, anon, authenticated;
 
+-- Hogares existentes: nueva estructura y los montos del Excel
 select public.seed_categories_v3(id, false) from public.households;

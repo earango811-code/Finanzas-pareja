@@ -11,7 +11,7 @@ export interface Visual {
 const GROUPS: Record<string, Visual> = {
   Mercado: { color: "var(--g-comida)", icon: "🛒" },
   Servicios: { color: "var(--g-casa)", icon: "💡" },
-  "Gastos de casa": { color: "var(--g-casa)", icon: "🏠" },
+  "Aseo de casa": { color: "var(--g-casa)", icon: "🧽" },
   Transporte: { color: "var(--g-transporte)", icon: "🚗" },
   "Empleada de servicio": { color: "var(--g-extra1)", icon: "🧹" },
   "Cuidado personal": { color: "var(--g-extra3)", icon: "🧴" },

@@ -133,18 +133,18 @@ El presupuesto se define a nivel de **categoría**; las subcategorías son solo 
 
 | Grupo | Categorías | Presupuesto inicial |
 |---|---|---|
-| Mercado | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.750.000 |
+| Mercado | Alimentos · Bebidas · Café · Caramelos · Comida | $ 1.500.000 |
 | Servicios | Agua · Luz · Internet · Gas · General | $ 480.000 |
-| Gastos de casa | TV · Teléfono | — |
+| Aseo de casa | General | $ 150.000 |
 | Transporte | Combustible · Uber · Gastos de carro | $ 400.000 |
-| Empleada de servicio | General | — |
-| Cuidado personal | Aseo personal · Skincare · Otros | — |
+| Empleada de servicio | General | $ 400.000 |
+| Bebidas alcohólicas | Vino · Cerveza · Tequila · Whisky · Otros | $ 250.000 |
 | Salidas | Cine · Restaurante v2 · Rumba | $ 1.500.000 |
-| Bebidas alcohólicas | Vino · Cerveza · Tequila · Whisky · Otros | — |
-| Suscripciones | Streaming · Almacenamiento · Otros | — |
+| Cuidado personal | Aseo personal · Skincare · Otros | $ 250.000 |
+| Suscripciones | Streaming · Almacenamiento · Otros | $ 40.000 |
+| Fondo de imprevistos → 🐷 Fondo de imprevistos | — | $ 200.000 |
+| Viaje → 🐷 Viaje | — | $ 1.000.000 |
 | Ahorro → 🐷 Ahorro | Inversiones | 100 % de lo que sobra |
-| Fondo de imprevistos → 🐷 Fondo de imprevistos | — | — |
-| Viaje → 🐷 Viaje | — | — |
 | Ingresos | Prestaciones · Salario | — |
 
 Los grupos de ahorro van al final del presupuesto y, al cerrar el mes, lo que les sobra se pasa a su bolsillo (🐷 Bolsillos → Cierre del mes). La pestaña **Plan** muestra si el presupuesto cubre el 100 % de los ingresos.
