@@ -169,12 +169,13 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
           {recent.length === 0 ? (
             <p className="muted px-4 py-6 text-center text-sm">Aún no hay movimientos identificados este mes.</p>
           ) : (
-            <ul className="mt-2">
+            <ul className="mt-2 divide-y divide-[var(--line)]">
               {recent.map((t) => {
                 const vis = visualFor(t.category_id, allCategories);
                 const cat = t.category_id ? byId.get(t.category_id) : undefined;
                 return (
-                  <li key={t.id} className="list-row">
+                  <li key={t.id}>
+                    <Link href={`/movimientos/${t.id}?volver=/inicio`} className="list-row">
                     <CatIcon visual={vis} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{cat?.name ?? t.merchant ?? "Movimiento"}</p>
@@ -187,6 +188,7 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
                       {t.kind === "ingreso" ? "+" : "−"}
                       {formatCOP(t.amount)}
                     </span>
+                    </Link>
                   </li>
                 );
               })}

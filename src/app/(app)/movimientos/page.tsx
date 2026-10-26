@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { TxActions } from "@/components/tx-actions";
 import { currentMonth, defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/dates";
@@ -80,6 +81,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
               .join(" · ");
             return (
               <li key={t.id} className="list-row">
+                <Link href={`/movimientos/${t.id}?volver=${encodeURIComponent(`/movimientos?mes=${month}&f=${filter}`)}`} className="flex min-w-0 flex-1 items-center gap-3">
                 <CatIcon
                   visual={
                     hasCategory
@@ -101,6 +103,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                   {t.kind === "ingreso" ? "+" : ""}
                   {formatCOP(t.amount)}
                 </p>
+                </Link>
                 <TxActions
                   id={t.id}
                   canReopen={t.kind !== "liquidacion"}

@@ -6,6 +6,8 @@ import { monthLabel, todayBogota } from "@/domain/dates";
 import { pocketFitsTx } from "@/domain/pockets";
 import { firstOccurrence, firstOnOrAfter, type Frequency } from "@/domain/recurring";
 import { rulePatternFor } from "@/domain/rules";
+import { normalizeTxEdit } from "@/domain/tx-edit";
+import type { TxStatus } from "@/domain/types";
 import { getHousehold } from "@/lib/household";
 import { isWeakPin, normalizeEmail, PIN_REGEX, pinToPassword } from "@/lib/pin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -869,6 +871,110 @@ export async function setTransactionPocket(txId: string, pocketId: string | null
     if (error) throw new Error(error.message);
     refresh();
     return { ok: true, message: pocketId ? "Pagado desde el bolsillo: ya no cuenta en el presupuesto del mes" : "Vuelve a contar en el presupuesto del mes" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detalle de un movimiento: se puede editar todo en cualquier momento
+// ---------------------------------------------------------------------------
+
+const txUpdateSchema = z.object({
+  id: uuid,
+  kind: z.enum(["gasto", "ingreso", "transferencia_interna", "pago_tarjeta", "liquidacion"]),
+  amount: pesos.refine((n) => n > 0, "El valor debe ser mayor a 0"),
+  date: isoDate,
+  budgetMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mes inválido").nullable(),
+  scope: z.enum(["compartido", "personal"]).nullable(),
+  categoryId: uuid.nullable(),
+  paidBy: uuid,
+  counterpartyId: uuid.nullable().default(null),
+  accountId: uuid.nullable(),
+  pocketId: uuid.nullable().default(null),
+  merchant: z.string().trim().max(120).default(""),
+  notes: z.string().trim().max(500).default(""),
+});
+
+export async function updateTransaction(input: z.input<typeof txUpdateSchema>): Promise<ActionResult> {
+  try {
+    const p = txUpdateSchema.parse(input);
+    const { supabase, user, members, accounts, allCategories } = await getHousehold();
+    const { data: tx } = await supabase.from("transactions").select("status, kind").eq("id", p.id).single<{ status: TxStatus; kind: string }>();
+    if (!tx) throw new Error("Movimiento no encontrado");
+
+    if (!members.some((m) => m.id === p.paidBy)) throw new Error("Miembro inválido");
+    if (p.counterpartyId && !members.some((m) => m.id === p.counterpartyId)) throw new Error("Miembro inválido");
+    if (p.accountId && !accounts.some((a) => a.id === p.accountId && a.owner_member_id === p.paidBy)) {
+      throw new Error("La cuenta no es de quien pagó");
+    }
+    const cat = p.categoryId ? allCategories.find((c) => c.id === p.categoryId) : null;
+    if (p.categoryId && !cat) throw new Error("Categoría no encontrada");
+    if (cat && p.kind === "gasto" && cat.is_income) throw new Error("Un gasto no puede ir en una categoría de ingresos");
+
+    const r = normalizeTxEdit(
+      {
+        kind: p.kind,
+        date: p.date,
+        budgetMonth: p.budgetMonth,
+        scope: p.scope,
+        categoryId: p.categoryId,
+        pocketId: p.pocketId,
+        paidBy: p.paidBy,
+        counterpartyId: p.counterpartyId,
+      },
+      tx.status,
+    );
+    if ("error" in r) throw new Error(r.error);
+    const v = r.value;
+    if (v.pocketId) await assertPocketFits(supabase, v.pocketId, [{ scope: v.scope, paid_by_member_id: p.paidBy }]);
+
+    const becameIdentified = r.status === "identificado" && tx.status !== "identificado";
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        kind: v.kind,
+        amount: p.amount,
+        occurred_on: v.date,
+        budget_month: v.budgetMonth,
+        scope: v.scope,
+        category_id: v.categoryId,
+        pocket_id: v.pocketId,
+        paid_by_member_id: p.paidBy,
+        counterparty_member_id: v.counterpartyId,
+        account_id: p.accountId,
+        merchant: p.merchant || null,
+        notes: p.notes || null,
+        status: r.status,
+        ...(becameIdentified ? { identified_by: user.id, identified_at: new Date().toISOString() } : {}),
+        ...(r.status === "pendiente" ? { identified_by: null, identified_at: null } : {}),
+      })
+      .eq("id", p.id);
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: r.status === "pendiente" ? "Guardado. Quedó en pendientes porque le falta ámbito o categoría" : "Cambios guardados" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Ignorar o volver a contar un movimiento desde su detalle. */
+export async function setTransactionIgnored(id: string, ignored: boolean): Promise<ActionResult> {
+  try {
+    const { supabase } = await getHousehold();
+    const txId = uuid.parse(id);
+    const { data: tx } = await supabase
+      .from("transactions")
+      .select("kind, scope, category_id")
+      .eq("id", txId)
+      .single<{ kind: string; scope: string | null; category_id: string | null }>();
+    if (!tx) throw new Error("Movimiento no encontrado");
+    const complete = !(tx.kind === "gasto" || tx.kind === "ingreso") || (tx.scope && (tx.category_id || tx.kind === "ingreso"));
+    const status = ignored ? "ignorado" : complete ? "identificado" : "pendiente";
+    const { error } = await supabase.from("transactions").update({ status }).eq("id", txId);
+    if (error) throw new Error(error.message);
+    refresh();
+    return { ok: true, message: ignored ? "Ignorado: ya no cuenta en nada" : status === "pendiente" ? "Restaurado en pendientes" : "Restaurado" };
   } catch (e) {
     return fail(e);
   }

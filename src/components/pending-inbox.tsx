@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
   classifyTransactions,
@@ -185,6 +186,11 @@ export function PendingInbox({
               </div>
             )}
 
+            {open && (
+              <Link href={`/movimientos/${c.id}?volver=/pendientes`} className="block border-t border-[var(--line)] px-4 py-2 text-sm font-medium text-[var(--color-brand)]">
+                ✏️ Editar valor, fecha, quién pagó y demás datos
+              </Link>
+            )}
             {open && (
               <Classifier
                 categories={categories}
