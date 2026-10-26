@@ -26,7 +26,7 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="¿Quién le debe a quién?" month={month} basePath="/balance" />
+      <PageHeader title="Quién le debe a quién" month={month} basePath="/balance" backHref="/inicio" />
       <div className="flex flex-col gap-4 px-4">
         {pendingCount > 0 && (
           <a href="/pendientes" className="card block border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

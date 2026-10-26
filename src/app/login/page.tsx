@@ -63,7 +63,7 @@ function LoginForm() {
     setBusy(false);
     if (res.ok) {
       rememberEmail();
-      router.replace("/pendientes");
+      router.replace("/inicio");
       router.refresh();
       return;
     }
@@ -102,7 +102,7 @@ function LoginForm() {
     setBusy(false);
     if (error) setError("Código inválido o vencido. Pide uno nuevo.");
     else {
-      router.replace("/pendientes");
+      router.replace("/inicio");
       router.refresh();
     }
   }

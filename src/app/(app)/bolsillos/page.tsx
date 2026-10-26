@@ -76,7 +76,7 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="Bolsillos" />
+      <PageHeader title="Bolsillos" backHref="/presupuesto" />
       <PocketsManager
         pockets={pockets}
         leftovers={beforeStart ? [] : leftovers.filter((l) => l.hasBudget)}

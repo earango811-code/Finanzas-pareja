@@ -61,7 +61,7 @@ export default async function AjustesPage() {
 
   return (
     <>
-      <PageHeader title="Ajustes" />
+      <PageHeader title="Ajustes" backHref="/mas" />
       <div className="flex flex-col gap-6 px-4 pb-8">
         <nav className="grid grid-cols-2 gap-3">
           <Link href="/ajustes/categorias" className="card flex flex-col gap-1 p-4">
@@ -120,13 +120,13 @@ export default async function AjustesPage() {
           </div>
         </section>
 
-        <section>
+        <section id="cuentas">
           <h2 className="mb-3 font-semibold">Cuentas y medios de pago</h2>
           <AccountsEditor accounts={accounts} members={memberOpts} />
         </section>
 
         <section id="presupuesto">
-          <h2 className="mb-1 font-semibold">Presupuesto mensual</h2>
+          <h2 className="mb-1 font-semibold">Presupuesto mensual por grupo</h2>
           <p className="muted mb-3 text-xs">
             “Fijo” es un monto. “Resto” toma un % de lo que sobra del ingreso después de los fijos (así calculaba el Excel
             el ahorro).

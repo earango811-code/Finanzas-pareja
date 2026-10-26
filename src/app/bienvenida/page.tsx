@@ -20,12 +20,12 @@ async function createHousehold(formData: FormData) {
   const p = schema.parse(Object.fromEntries(formData));
   const { error } = await supabase.rpc("create_household", p);
   if (error) throw new Error(error.message);
-  redirect("/pendientes");
+  redirect("/inicio");
 }
 
 export default async function WelcomePage() {
   const { me, user } = await getSession();
-  if (me) redirect("/pendientes");
+  if (me) redirect("/inicio");
 
   return (
     <main className="mx-auto max-w-md px-5 py-10">

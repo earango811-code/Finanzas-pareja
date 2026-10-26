@@ -10,6 +10,8 @@ import {
 } from "@/app/(app)/actions";
 import { BUDGET_GROUP_LABEL, type BudgetGroup, type CategoryScope } from "@/domain/types";
 import type { CategoryRow } from "@/lib/db-types";
+import { visualFor } from "@/lib/visual";
+import { CatIcon } from "@/components/cat-icon";
 
 const SCOPE_LABEL: Record<CategoryScope, string> = { compartida: "Compartida", personal: "Personal", ambas: "Ambas" };
 
@@ -42,7 +44,7 @@ export function CategoryManager({ categories, counts }: { categories: CategoryRo
         className={`flex w-full items-center gap-2 py-3 text-left ${isChild ? "pl-8 pr-4" : "px-4"}`}
         onClick={() => setEditing(editing === c.id ? null : c.id)}
       >
-        <span aria-hidden className="muted text-sm">✏️</span>
+        <CatIcon visual={visualFor(c.id, categories)} size={isChild ? 30 : 38} />
         <span className={`min-w-0 flex-1 truncate ${isChild ? "" : "text-lg font-semibold"}`}>{c.name}</span>
         {!isChild && (
           <span className="muted shrink-0 text-[11px]">
@@ -60,14 +62,14 @@ export function CategoryManager({ categories, counts }: { categories: CategoryRo
   return (
     <div className="flex flex-col gap-4 px-4 pb-8">
       <p className="muted text-xs">
-        Toca una categoría para cambiarle el nombre, moverla o eliminarla. El presupuesto se define en las principales
-        (desde Ajustes → Presupuesto); lo gastado en sus subcategorías suma a la principal.
+        Toca un grupo o una categoría para cambiarle el nombre, moverla o eliminarla. El presupuesto se define por grupo
+        (Herramientas → Presupuesto por grupo); las categorías son para dar más detalle y lo gastado en ellas suma a su grupo.
       </p>
 
       {adding === "root" ? (
         <NewCategory parent={null} onDone={() => setAdding(null)} />
       ) : (
-        <button className="btn btn-primary" onClick={() => setAdding("root")}>+ Nueva categoría principal</button>
+        <button className="btn btn-primary" onClick={() => setAdding("root")}>+ Nuevo grupo</button>
       )}
 
       {parents.map((p) => (
@@ -80,7 +82,7 @@ export function CategoryManager({ categories, counts }: { categories: CategoryRo
                 <NewCategory parent={p} onDone={() => setAdding(null)} />
               ) : (
                 <button className="w-full py-3 pl-8 text-left text-sm font-medium text-[var(--color-brand)]" onClick={() => setAdding(p.id)}>
-                  + Agregar subcategoría
+                  + Agregar categoría
                 </button>
               )}
             </li>
@@ -139,12 +141,12 @@ function CategoryEditor({
       <label className="flex flex-col gap-1 text-xs">
         Ubicación
         <select className="input" value={parentId} onChange={(e) => setParentId(e.target.value)} disabled={hasChildren}>
-          <option value="">Categoría principal</option>
+          <option value="">Es un grupo</option>
           {parentOptions.map((p) => (
-            <option key={p.id} value={p.id}>Subcategoría de {p.name}</option>
+            <option key={p.id} value={p.id}>Categoría del grupo {p.name}</option>
           ))}
         </select>
-        {hasChildren && <span className="muted">Tiene subcategorías, por eso no se puede mover.</span>}
+        {hasChildren && <span className="muted">Este grupo tiene categorías, por eso no se puede volver categoría.</span>}
       </label>
 
       {!parentId && !category.is_income && (
@@ -156,7 +158,7 @@ function CategoryEditor({
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs">
-            Grupo 50/30/20
+            Tipo (50/30/20)
             <select className="input" value={group ?? ""} onChange={(e) => setGroup(e.target.value as BudgetGroup)}>
               {Object.entries(BUDGET_GROUP_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
@@ -198,7 +200,7 @@ function CategoryEditor({
           Eliminar
         </button>
       </div>
-      {hasChildren && <p className="muted text-xs">Para eliminarla, primero elimina o mueve sus subcategorías.</p>}
+      {hasChildren && <p className="muted text-xs">Para eliminar el grupo, primero elimina o mueve sus categorías.</p>}
 
       {confirmDelete && (
         <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-red-900">
@@ -243,7 +245,7 @@ function NewCategory({ parent, onDone }: { parent: CategoryRow | null; onDone: (
       <input
         className="input"
         autoFocus
-        placeholder={parent ? `Nueva subcategoría de ${parent.name}` : "Nombre de la categoría"}
+        placeholder={parent ? `Nueva categoría de ${parent.name}` : "Nombre del grupo"}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />

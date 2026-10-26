@@ -17,7 +17,7 @@ export default async function NuevoPage() {
     .returns<{ id: string; name: string; owner_member_id: string | null }[]>();
   return (
     <>
-      <PageHeader title="Registrar movimiento" />
+      <PageHeader title="Registrar" />
       <QuickEntryForm
         today={todayBogota()}
         meId={me.id}

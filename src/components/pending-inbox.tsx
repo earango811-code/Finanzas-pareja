@@ -12,6 +12,8 @@ import { formatCOP } from "@/domain/money";
 import type { Suggestion } from "@/domain/rules";
 import type { TxKind, TxScope, TxSource } from "@/domain/types";
 import type { CategoryOption } from "@/lib/categories";
+import { visualFor } from "@/lib/visual";
+import { CatIcon } from "@/components/cat-icon";
 
 export interface PendingCard {
   id: string;
@@ -141,6 +143,7 @@ export function PendingInbox({
               {selecting && (
                 <span className={`mt-1 h-5 w-5 shrink-0 rounded-md border-2 ${selected.has(c.id) ? "border-[var(--color-brand)] bg-[var(--color-brand)]" : "border-[var(--line)]"}`} />
               )}
+              <CatIcon visual={c.suggestion?.categoryId ? visualFor(c.suggestion.categoryId, categories) : { color: "var(--g-neutral)", icon: c.kind === "ingreso" ? "💵" : "❔" }} size={40} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{c.merchant}</p>
                 <p className="muted mt-0.5 truncate text-xs">
@@ -294,7 +297,7 @@ function Classifier({
             <div className="flex flex-wrap gap-2">
               {quick.map((c) => (
                 <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
-                  {c.name}
+                  <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                 </button>
               ))}
               <button className="chip muted" onClick={() => setShowAll(true)}>Todas…</button>
@@ -305,11 +308,11 @@ function Classifier({
                 const kids = childrenOf(p.id);
                 return (
                   <div key={p.id}>
-                    <p className="muted mb-1 text-xs font-semibold uppercase tracking-wide">{p.name}</p>
+                    <p className="muted mb-1 text-xs font-semibold uppercase tracking-wide">{visualFor(p.id, categories).icon} {p.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {kids.map((c) => (
                         <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
-                          {c.name}
+                          <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                         </button>
                       ))}
                       <button
@@ -317,7 +320,7 @@ function Classifier({
                         disabled={busy}
                         onClick={() => onClassify(scope, p.id, remember, chosenPocket || null)}
                       >
-                        {kids.length ? `${p.name} (general)` : p.name}
+                        {kids.length ? "General" : p.name}
                       </button>
                     </div>
                   </div>

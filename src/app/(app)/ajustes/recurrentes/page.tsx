@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { RecurringManager } from "@/components/recurring-manager";
 import { todayBogota } from "@/domain/dates";
 import { toOptions } from "@/lib/categories";
@@ -27,10 +27,7 @@ export default async function RecurrentesPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex items-center gap-3 bg-[var(--bg)]/95 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur">
-        <Link href="/ajustes" className="btn btn-ghost !min-h-10 !px-3" aria-label="Volver">‹</Link>
-        <h1 className="text-xl font-bold">Recurrentes</h1>
-      </header>
+      <PageHeader title="Recurrentes" backHref="/mas" />
       <RecurringManager
         items={data ?? []}
         today={todayBogota()}

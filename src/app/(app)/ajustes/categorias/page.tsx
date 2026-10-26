@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { CategoryManager } from "@/components/category-manager";
 import { getHousehold } from "@/lib/household";
 
@@ -20,10 +20,7 @@ export default async function CategoriasPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex items-center gap-3 bg-[var(--bg)]/95 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur">
-        <Link href="/ajustes" className="btn btn-ghost !min-h-10 !px-3" aria-label="Volver">‹</Link>
-        <h1 className="text-xl font-bold">Editar categorías</h1>
-      </header>
+      <PageHeader title="Grupos y categorías" backHref="/mas" />
       <CategoryManager categories={allCategories} counts={counts} />
     </>
   );

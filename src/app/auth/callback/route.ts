@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
   // Solo rutas internas, para no convertir esto en un redireccionador abierto
-  const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/pendientes";
+  const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/inicio";
 
   if (code) {
     const supabase = await createClient();

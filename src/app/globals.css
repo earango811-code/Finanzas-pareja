@@ -1,28 +1,49 @@
 @import "tailwindcss";
 
+/* Estilo inspirado en Buddy: fondo gris muy claro, tarjetas blancas redondeadas,
+   títulos grandes, íconos en círculos de color y barra inferior flotante. */
+
 @theme {
   --color-brand: #0f766e;
   --color-brand-soft: #ccfbf1;
-  --color-shared: #2563eb;
-  --color-personal: #9333ea;
+  --color-shared: #4f8fe0;
+  --color-personal: #8b5cf6;
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
-  --bg: #f6f7f9;
+  --bg: #f4f5f7;
   --card: #ffffff;
-  --fg: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
+  --fg: #111827;
+  --muted: #6b7280;
+  --line: #eceef1;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
+
+  /* Grupos (paleta validada: luminosidad, croma y separación para daltonismo) */
+  --g-comida: #4f8fe0;
+  --g-casa: #f2994a;
+  --g-salidas: #d9487a;
+  --g-ahorros: #26b5c6;
+  --g-transporte: #8b5cf6;
+  --g-ingresos: #7cb342;
+  --g-extra1: #0f766e;
+  --g-extra2: #b45309;
+  --g-extra3: #be185d;
+  --g-neutral: #9ca3af;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b1120;
-    --card: #131c2e;
-    --fg: #e2e8f0;
-    --muted: #94a3b8;
-    --line: #1e293b;
+    --bg: #0e1116;
+    --card: #181c23;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --line: #262b34;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --g-casa: #c27a12;
+    --g-ahorros: #1a9aab;
+    --g-ingresos: #689f38;
+    --g-neutral: #6b7280;
   }
 }
 
@@ -36,7 +57,8 @@ body {
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow);
 }
 
 .muted {
@@ -47,8 +69,8 @@ body {
   width: 100%;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.8rem;
+  border-radius: 0.875rem;
+  padding: 0.7rem 0.85rem;
   font-size: 16px; /* evita el zoom automático en iPhone */
 }
 
@@ -57,8 +79,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border-radius: 0.75rem;
-  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
   font-weight: 600;
   min-height: 44px;
   transition: transform 0.05s;
@@ -79,10 +101,13 @@ body {
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: 999px;
-  padding: 0.45rem 0.85rem;
+  padding: 0.4rem 0.8rem;
   font-size: 0.875rem;
   min-height: 36px;
 }
@@ -90,6 +115,41 @@ body {
   background: var(--color-brand);
   border-color: var(--color-brand);
   color: white;
+}
+
+/* Control segmentado (pestañas dentro de una pantalla, como Plan / Restante / Análisis) */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--line);
+}
+.segmented > * {
+  border-radius: 999px;
+  padding: 0.45rem 0.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.segmented > [data-active="true"] {
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
+
+/* Lista agrupada (filas con separador, dentro de una tarjeta) */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+}
+.list-row + .list-row {
+  border-top: 1px solid var(--line);
 }
 
 .tabular {

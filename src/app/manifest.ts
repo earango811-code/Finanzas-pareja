@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Finanzas",
     description: "Presupuesto compartido y conciliación de la pareja",
     lang: "es-CO",
-    start_url: "/pendientes",
+    start_url: "/inicio",
     display: "standalone",
     background_color: "#f6f7f9",
     theme_color: "#0f766e",

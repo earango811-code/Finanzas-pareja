@@ -5,7 +5,8 @@ import { formatCOP } from "@/domain/money";
 import { pocketFitsTx } from "@/domain/pockets";
 import { KIND_LABEL } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
-import { categoryLabel } from "@/lib/categories";
+import { CatIcon } from "@/components/cat-icon";
+import { visualFor } from "@/lib/visual";
 import { getHousehold, memberName } from "@/lib/household";
 
 export const metadata = { title: "Movimientos" };
@@ -56,7 +57,7 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <PageHeader title="Movimientos" month={month} basePath="/movimientos" />
+      <PageHeader title="Movimientos" month={month} basePath="/movimientos" backHref="/inicio" />
       <div className="flex gap-2 overflow-x-auto px-4 pb-3">
         {FILTERS.map((f) => (
           <a key={f.key} href={`/movimientos?mes=${month}&f=${f.key}`} className="chip shrink-0" data-active={filter === f.key}>
@@ -68,16 +69,26 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
       {txs.length === 0 ? (
         <p className="muted px-4 py-16 text-center text-sm">No hay movimientos en este filtro.</p>
       ) : (
-        <ul className="card mx-4 divide-y divide-[var(--line)]">
+        <ul className="card mx-4 overflow-hidden">
           {txs.map((t) => {
-            const label =
-              t.kind === "gasto" || (t.kind === "ingreso" && t.category_id)
-                ? `${categoryLabel(t.category_id, catById)} · ${t.scope}`
-                : KIND_LABEL[t.kind];
+            const hasCategory = t.kind === "gasto" || (t.kind === "ingreso" && !!t.category_id);
+            // Título: la categoría (o el tipo); el comercio queda como detalle
+            const title = hasCategory ? (t.category_id ? catById.get(t.category_id)?.name ?? "Sin categoría" : "Sin categoría") : KIND_LABEL[t.kind];
+            const group = t.category_id ? catById.get(catById.get(t.category_id)?.parent_id ?? "")?.name : undefined;
+            const label = [group, t.scope === "compartido" ? "🏠 compartido" : t.scope === "personal" ? "👤 personal" : null, t.merchant]
+              .filter(Boolean)
+              .join(" · ");
             return (
-              <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+              <li key={t.id} className="list-row">
+                <CatIcon
+                  visual={
+                    hasCategory
+                      ? visualFor(t.category_id, allCategories)
+                      : { color: "var(--g-neutral)", icon: t.kind === "liquidacion" ? "⚖️" : t.kind === "pago_tarjeta" ? "💳" : "↔️" }
+                  }
+                />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{t.merchant ?? "Sin descripción"}</p>
+                  <p className="truncate text-sm font-medium">{title}</p>
                   <p className="muted truncate text-xs">
                     {shortDate(t.occurred_on)} · {label} · {memberName(ctx, t.paid_by_member_id)}
                     {t.kind === "liquidacion" && ` → ${memberName(ctx, t.counterparty_member_id)}`}

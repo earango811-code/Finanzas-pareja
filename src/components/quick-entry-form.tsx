@@ -8,6 +8,7 @@ import { formatCOP } from "@/domain/money";
 import { parseQuickEntry } from "@/domain/quick-entry";
 import type { TxScope } from "@/domain/types";
 import type { CategoryOption } from "@/lib/categories";
+import { visualFor } from "@/lib/visual";
 
 interface Props {
   today: string;
@@ -128,7 +129,6 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
         </div>
 
         <MoneyInput value={amount} onValueChange={setAmount} placeholder="Valor" />
-        <input className="input" placeholder="Comercio o descripción" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
         <input className="input" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} />
 
         <div className="grid grid-cols-2 gap-2">
@@ -147,7 +147,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
               data-active={openParent === c.id}
               onClick={() => setCategoryId(openParent === c.id ? null : c.id)}
             >
-              {c.name}
+              <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
             </button>
           ))}
         </div>
@@ -160,7 +160,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
                 data-active={categoryId === c.id}
                 onClick={() => setCategoryId(categoryId === c.id ? openParent : c.id)}
               >
-                {c.name}
+                <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
               </button>
             ))}
           </div>
