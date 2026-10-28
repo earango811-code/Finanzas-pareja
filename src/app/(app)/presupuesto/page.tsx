@@ -151,8 +151,9 @@ export default async function PresupuestoPage({
         )}
 
         {tab === "restante" && (
+          <>
           <ul className="card overflow-hidden">
-            {ordered.map((r) => {
+            {ordered.filter((r) => r.group !== "ahorro").map((r) => {
               const vis = visualFor(r.categoryId, allCategories);
               const left = r.budgeted - r.spent;
               const subs = (breakdown.get(r.categoryId) ?? []).sort((a, b) => b.amount - a.amount);
@@ -190,6 +191,33 @@ export default async function PresupuestoPage({
             })}
             {ordered.length === 0 && <li className="muted list-row justify-center text-sm">No hay presupuesto para esta vista.</li>}
           </ul>
+          {ordered.some((r) => r.group === "ahorro") && (
+            <>
+              <h2 className="muted -mb-2 px-1 text-xs font-semibold uppercase tracking-wide">Ahorro · no cuenta en lo que queda para gastar</h2>
+              <ul className="card overflow-hidden">
+                {ordered
+                  .filter((r) => r.group === "ahorro")
+                  .map((r) => {
+                    const vis = visualFor(r.categoryId, allCategories);
+                    const g = catById.get(r.categoryId);
+                    return (
+                      <li key={r.categoryId} className="list-row">
+                        <CatIcon visual={vis} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{r.name}</span>
+                          <span className="muted block text-xs">
+                            {g?.pocket_id ? `A fin de mes → 🐷 ${pocketName.get(g.pocket_id) ?? "bolsillo"}` : "Ahorro"}
+                            {r.spent > 0 && ` · usado ${formatCOP(r.spent)}`}
+                          </span>
+                        </span>
+                        <span className="tabular font-semibold">{formatCOP(r.budgeted - r.spent)}</span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </>
+          )}
+          </>
         )}
 
         {tab === "plan" && (
@@ -255,7 +283,7 @@ export default async function PresupuestoPage({
                 <span className="tabular font-bold">{formatCOP(coverage.saving)}</span>
               </li>
             </ul>
-            <Link href="/ajustes#presupuesto" className="btn btn-ghost">
+            <Link href="/ajustes/presupuesto" className="btn btn-ghost">
               Editar montos por grupo
             </Link>
           </>

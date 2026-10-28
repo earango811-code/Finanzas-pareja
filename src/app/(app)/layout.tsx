@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="mx-auto min-h-dvh max-w-2xl pb-28">
       {!me.pin_set_at && (
         <Link
-          href="/ajustes#pin"
+          href="/ajustes/acceso"
           className="mx-4 mt-[max(0.75rem,env(safe-area-inset-top))] block rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-900"
         >
           🔑 Crea tu PIN de 4 números para entrar fácil desde el celular →

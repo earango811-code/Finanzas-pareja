@@ -9,6 +9,7 @@ const SECTIONS: { title: string; items: { href: string; icon: string; color: str
   {
     title: "Dinero",
     items: [
+      { href: "/cierre", icon: "✅", color: "var(--g-ingresos)", label: "Cierre de mes", hint: "Conciliar con el banco, bolsillos e ingreso final" },
       { href: "/movimientos", icon: "📄", color: "var(--g-comida)", label: "Movimientos", hint: "Todo lo identificado, por mes" },
       { href: "/balance", icon: "⚖️", color: "var(--g-transporte)", label: "Quién le debe a quién", hint: "Reparto de los gastos compartidos" },
       { href: "/bolsillos", icon: "🐷", color: "var(--g-ahorros)", label: "Bolsillos", hint: "Viaje, imprevistos… y el sobrante del mes" },
@@ -20,9 +21,10 @@ const SECTIONS: { title: string; items: { href: string; icon: string; color: str
     items: [
       { href: "/ingresos", icon: "💵", color: "var(--g-ingresos)", label: "Ingresos", hint: "Lo de cada uno y el % con que se reparten los gastos" },
       { href: "/ajustes/categorias", icon: "🏷️", color: "var(--g-salidas)", label: "Grupos y categorías", hint: "Crear, renombrar, mover" },
-      { href: "/ajustes#presupuesto", icon: "◔", color: "var(--g-comida)", label: "Presupuesto por grupo", hint: "Montos de cada grupo" },
-      { href: "/ajustes#cuentas", icon: "💳", color: "var(--g-transporte)", label: "Cuentas y tarjetas", hint: "Últimos 4 dígitos de cada una" },
-      { href: "/ajustes#pin", icon: "🔑", color: "var(--g-casa)", label: "PIN y Gmail", hint: "Acceso y alertas del banco" },
+      { href: "/ajustes/presupuesto", icon: "◔", color: "var(--g-comida)", label: "Presupuesto por grupo", hint: "Montos de cada grupo" },
+      { href: "/ajustes/cuentas", icon: "💳", color: "var(--g-transporte)", label: "Cuentas y tarjetas", hint: "Últimos 4 dígitos de cada una" },
+      { href: "/ajustes/reglas", icon: "⚡", color: "var(--g-extra1)", label: "Reglas automáticas", hint: "Comercios que se clasifican solos" },
+      { href: "/ajustes/acceso", icon: "🔑", color: "var(--g-casa)", label: "PIN y Gmail", hint: "Acceso y alertas del banco" },
     ],
   },
 ];

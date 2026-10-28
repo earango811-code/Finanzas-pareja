@@ -9,7 +9,7 @@ const TABS = [
   { href: "/pendientes", label: "Pendientes", icon: "📥", match: ["/pendientes"] },
   { href: "/nuevo", label: "Registrar", icon: "+", primary: true, match: ["/nuevo"] },
   { href: "/presupuesto", label: "Presupuesto", icon: "◔", match: ["/presupuesto", "/bolsillos"] },
-  { href: "/mas", label: "Herramientas", icon: "🧰", match: ["/mas", "/ajustes"] },
+  { href: "/mas", label: "Herramientas", icon: "🧰", match: ["/mas", "/ajustes", "/cierre", "/ingresos"] },
 ];
 
 export function BottomNav({ pending }: { pending: number }) {

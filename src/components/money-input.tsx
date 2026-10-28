@@ -28,9 +28,9 @@ export function MoneyInput({
 
   return (
     <div className={`relative ${className}`}>
-      <span className="muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">$</span>
+      <span className="muted pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2">$</span>
       <input
-        className="input tabular pl-7"
+        className="input tabular !pl-8"
         inputMode="numeric"
         placeholder={placeholder}
         value={shown}

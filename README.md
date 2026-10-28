@@ -52,6 +52,7 @@ la misma cuenta de GitHub). Toma unos 20 minutos.
    8. `20261025000008_categorias_definitivas.sql`
    9. `20261025000009_ajuste_categorias.sql`
    10. `20261026000010_grupos_y_ahorro_a_bolsillos.sql`
+   11. `20261028000011_cierre_de_mes.sql`
 3. **Authentication → Sign In / Providers → Email**: déjalo activado.
 4. **Project Settings → API Keys**: copia la **Project URL**, la llave pública (*publishable* o
    *anon*) y la secreta (*secret* o *service_role*). Las usarás en el paso 3.
