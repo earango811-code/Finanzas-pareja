@@ -1,5 +1,5 @@
 // Parser de alertas por correo de Bancolombia
-// (remitente: alertasynotificaciones@ayn.notificacionesbancolombia.com).
+// (remitentes: alertasynotificaciones@ayn.notificacionesbancolombia.com y @an.notificacionesbancolombia.com).
 //
 // Formatos verificados contra correos reales (oct-2026):
 //   Compraste COP52.819,86 en COMERCIO con tu T.Cred *1234, el 16/10/2026 a las 13:05.
@@ -10,6 +10,8 @@
 //   NOMBRE, recibiste una transferencia de REMITENTE por $512000.00 en tu cuenta *1234 conectada a la llave ... el 15/10/26 a las 10:00.
 //   Recibiste un pago PROVEEDOR de EMPRESA por $3117459.00 en tu cuenta de Ahorros el 16/10/2026 a las 13:51.
 //   Pagaste $116600.00 a ENTIDAD desde tu producto 1234 el 01/10/2026 12:31:42.
+//   Recibiste una transferencia por $100,000 de REMITENTE en tu cuenta **1234, el 30/10/2026 a las 14:57.
+//   Retiraste $7,000,000.00 de tu cuenta de inversión *1234 del fondo ... Fiducuenta el 2026/10/23 a las 09:22:13.
 // Formato SUPUESTO (sin correo real todavía): Retiraste $X en CAJERO de tu cuenta/T.Deb *1234 el dd/mm/aaaa a las hh:mm.
 import { parseBankDate } from "../dates";
 import { parsePesos } from "../money";
@@ -23,7 +25,8 @@ export type EmailMovementType =
   | "transferencia_recibida"
   | "pago_recibido"
   | "pago_factura"
-  | "retiro";
+  | "retiro"
+  | "inversion";
 
 export interface ParsedMovement {
   type: EmailMovementType;
@@ -115,6 +118,31 @@ const PATTERNS: Pattern[] = [
     kind: "ingreso",
     re: new RegExp(String.raw`recibiste una transferencia de (.+?) por ${AMOUNT} en tu cuenta \*(\d{4}).*? el ${DATE} a las ${TIME}`, "i"),
     pick: (m) => ({ amount: m[2], merchant: m[1], acct: "debito", last4: m[3], date: m[4], time: m[5] }),
+  },
+  {
+    // Recibiste una transferencia por $X de REMITENTE en tu cuenta **1234, el dd/mm/aaaa a las hh:mm
+    type: "transferencia_recibida",
+    kind: "ingreso",
+    re: new RegExp(String.raw`recibiste una transferencia por ${AMOUNT} de (.+?) en tu cuenta \*{1,2}(\d{4}),? el ${DATE} a las ${TIME}`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: m[2], acct: "debito", last4: m[3], date: m[4], time: m[5] }),
+  },
+  {
+    // Fondo de inversión (Fiducuenta): Retiraste/Adicionaste $X de/a tu cuenta de inversión *1234 ... el aaaa/mm/dd a las hh:mm:ss.
+    // Es plata que se mueve entre productos propios: no es gasto ni ingreso.
+    type: "inversion",
+    kind: "transferencia_interna",
+    re: new RegExp(
+      String.raw`(Retiraste|Adicionaste|Invertiste|Aportaste|Abonaste) ${AMOUNT} (?:de|a|en) tu cuenta de inversi[oó]n \*(\d{4})(?:.*?fondo de inversi[oó]n colectiva (\S+))?.*? el (\d{4})\/(\d{1,2})\/(\d{1,2}) a las ${TIME}`,
+      "i",
+    ),
+    pick: (m) => ({
+      amount: m[2],
+      merchant: `${/retir/i.test(m[1]) ? "Retiro de" : "Aporte a"} ${m[4] ?? "fondo de inversión"} *${m[3]}`,
+      acct: "otro",
+      last4: m[3],
+      date: `${m[7]}/${m[6]}/${m[5]}`,
+      time: m[8],
+    }),
   },
   {
     // Recibiste un pago PROVEEDOR de EMPRESA por $X en tu cuenta de Ahorros el ...

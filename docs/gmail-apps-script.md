@@ -10,7 +10,7 @@ Bancolombia ──correo──▶ tu Gmail ──cada 5 min──▶ Apps Script
 ```
 
 - El script corre en **tu** cuenta de Google y solo busca correos de
-  `alertasynotificaciones@ayn.notificacionesbancolombia.com`. No lee ni envía nada más.
+  `alertasynotificaciones@ayn.notificacionesbancolombia.com` y `@an.notificacionesbancolombia.com` (en cualquier pestaña de Gmail, también Promociones). No lee ni envía nada más.
 - Cada envío va firmado con tu clave personal (HMAC-SHA256) y con la hora: si alguien copia la
   solicitud no puede reenviarla después de 5 minutos, y sin tu clave no puede inventar movimientos.
 - Reenviar el mismo correo no crea duplicados.

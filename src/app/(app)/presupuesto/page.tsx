@@ -2,10 +2,11 @@ import Link from "next/link";
 import { CatIcon } from "@/components/cat-icon";
 import { PageHeader } from "@/components/page-header";
 import { budgetCoverage, buildBudgetRows, summarizeGroups, type BudgetRow } from "@/domain/budget";
-import { defaultMonth, isValidMonth, monthLabel } from "@/domain/dates";
+import { defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
-import { getHousehold } from "@/lib/household";
+import type { TransactionRow } from "@/lib/db-types";
+import { getHousehold, memberName } from "@/lib/household";
 import { loadMonth } from "@/lib/month-data";
 import { visualFor } from "@/lib/visual";
 
@@ -53,9 +54,21 @@ export default async function PresupuestoPage({
   const tab: Tab = sp.tab === "plan" || sp.tab === "analisis" ? sp.tab : "restante";
   const view = members.some((m) => m.id === sp.vista) ? sp.vista! : "compartido";
   const memberId = view === "compartido" ? null : view;
-  const [{ txs, budgets, pendingCount }, { data: pocketData }] = await Promise.all([
+  const [{ txs, budgets, pendingCount }, { data: pocketData }, { data: detailData }] = await Promise.all([
     loadMonth(ctx, month),
     ctx.supabase.from("pockets").select("id, name").eq("household_id", me.household_id).returns<{ id: string; name: string }[]>(),
+    // Movimiento por movimiento de cada grupo (al tocar el grupo)
+    ctx.supabase
+      .from("transactions")
+      .select("id, occurred_on, amount, kind, merchant, category_id, scope, paid_by_member_id, pocket_id")
+      .eq("household_id", me.household_id)
+      .eq("status", "identificado")
+      .eq("month", month)
+      .in("kind", ["gasto", "ingreso"])
+      .not("category_id", "is", null)
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .returns<Pick<TransactionRow, "id" | "occurred_on" | "amount" | "kind" | "merchant" | "category_id" | "scope" | "paid_by_member_id" | "pocket_id">[]>(),
   ]);
   const pocketName = new Map((pocketData ?? []).map((p) => [p.id, p.name]));
 
@@ -101,6 +114,62 @@ export default async function PresupuestoPage({
     .map((c) => ({ ...c, budgeted: budgetedById.get(c.id) ?? 0 }));
   const planSpend = planGroups.filter((g) => g.budget_group !== "ahorro");
   const planSave = planGroups.filter((g) => g.budget_group === "ahorro");
+
+  // Movimientos de cada grupo en esta vista (compartido o personal de alguien)
+  const txsByGroup = new Map<string, NonNullable<typeof detailData>>();
+  for (const t of detailData ?? []) {
+    const inScope = memberId === null ? t.scope === "compartido" : t.scope === "personal" && t.paid_by_member_id === memberId;
+    const c = t.category_id ? catById.get(t.category_id) : undefined;
+    if (!inScope || !c || c.is_income) continue;
+    const root = c.parent_id ?? c.id;
+    txsByGroup.set(root, [...(txsByGroup.get(root) ?? []), t]);
+  }
+  const back = encodeURIComponent(`/presupuesto?mes=${month}&vista=${view}&tab=restante`);
+  const txList = (groupId: string) => {
+    const list = txsByGroup.get(groupId) ?? [];
+    const subs = (breakdown.get(groupId) ?? []).sort((a, b) => b.amount - a.amount);
+    return (
+      <div className="border-t border-[var(--line)] bg-[var(--bg)]">
+        {subs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+            {subs.map((x) => (
+              <span key={x.id} className="chip !py-1 text-xs">
+                {visualFor(x.id, allCategories).icon} {x.name} · <b className="tabular">{formatCOP(x.amount)}</b>
+              </span>
+            ))}
+          </div>
+        )}
+        {list.length === 0 ? (
+          <p className="muted px-4 py-3 text-sm">Sin movimientos este mes.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--line)] py-1">
+            {list.map((t) => {
+              const c = catById.get(t.category_id!);
+              return (
+                <li key={t.id}>
+                  <Link href={`/movimientos/${t.id}?volver=${back}`} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <CatIcon visual={visualFor(t.category_id, allCategories)} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{t.merchant || c?.name || "Movimiento"}</span>
+                      <span className="muted block truncate text-xs">
+                        {shortDate(t.occurred_on)}
+                        {c?.parent_id ? ` · ${c.name}` : ""} · {memberName(ctx, t.paid_by_member_id)}
+                        {t.pocket_id && ` · 🐷 desde ${pocketName.get(t.pocket_id) ?? "bolsillo"} (no cuenta)`}
+                      </span>
+                    </span>
+                    <span className={`tabular shrink-0 font-medium ${t.kind === "ingreso" ? "text-emerald-600" : ""} ${t.pocket_id ? "muted line-through" : ""}`}>
+                      {t.kind === "ingreso" ? "+" : ""}
+                      {formatCOP(t.amount)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    );
+  };
 
   const sortRows = (a: BudgetRow, b: BudgetRow) => (catById.get(a.categoryId)?.sort_order ?? 999) - (catById.get(b.categoryId)?.sort_order ?? 999);
   const ordered = [...rows].sort(sortRows);
@@ -156,7 +225,6 @@ export default async function PresupuestoPage({
             {ordered.filter((r) => r.group !== "ahorro").map((r) => {
               const vis = visualFor(r.categoryId, allCategories);
               const left = r.budgeted - r.spent;
-              const subs = (breakdown.get(r.categoryId) ?? []).sort((a, b) => b.amount - a.amount);
               return (
                 <li key={r.categoryId} className="list-row !block !p-0">
                   <details className="group">
@@ -174,17 +242,7 @@ export default async function PresupuestoPage({
                       </span>
                       <Ring ratio={r.budgeted > 0 ? r.spent / r.budgeted : r.spent > 0 ? Infinity : 0} color={vis.color} />
                     </summary>
-                    {subs.length > 0 && (
-                      <ul className="border-t border-[var(--line)] bg-[var(--bg)] px-4 py-2">
-                        {subs.map((s) => (
-                          <li key={s.id} className="flex items-center gap-2 py-1.5 text-sm">
-                            <CatIcon visual={visualFor(s.id, allCategories)} size={24} />
-                            <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                            <span className="tabular font-medium">{formatCOP(s.amount)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {txList(r.categoryId)}
                   </details>
                 </li>
               );
@@ -201,16 +259,21 @@ export default async function PresupuestoPage({
                     const vis = visualFor(r.categoryId, allCategories);
                     const g = catById.get(r.categoryId);
                     return (
-                      <li key={r.categoryId} className="list-row">
-                        <CatIcon visual={vis} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{r.name}</span>
-                          <span className="muted block text-xs">
-                            {g?.pocket_id ? `A fin de mes → 🐷 ${pocketName.get(g.pocket_id) ?? "bolsillo"}` : "Ahorro"}
-                            {r.spent > 0 && ` · usado ${formatCOP(r.spent)}`}
-                          </span>
-                        </span>
-                        <span className="tabular font-semibold">{formatCOP(r.budgeted - r.spent)}</span>
+                      <li key={r.categoryId} className="list-row !block !p-0">
+                        <details>
+                          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3">
+                            <CatIcon visual={vis} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{r.name}</span>
+                              <span className="muted block text-xs">
+                                {g?.pocket_id ? `A fin de mes → 🐷 ${pocketName.get(g.pocket_id) ?? "bolsillo"}` : "Ahorro"}
+                                {r.spent > 0 && ` · usado ${formatCOP(r.spent)}`}
+                              </span>
+                            </span>
+                            <span className="tabular font-semibold">{formatCOP(r.budgeted - r.spent)}</span>
+                          </summary>
+                          {txList(r.categoryId)}
+                        </details>
                       </li>
                     );
                   })}

@@ -16,7 +16,8 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 1_000_000;
 const RATE_LIMIT_PER_MINUTE = 120; // alertas por miembro por minuto
-const ALLOWED_SENDER = /@(ayn\.)?notificacionesbancolombia\.com>?$/i;
+// Bancolombia envía alertas desde @ayn. y también desde @an. (transferencias recibidas, inversiones)
+const ALLOWED_SENDER = /@(?:ayn\.|an\.)?notificacionesbancolombia\.com>?$/i;
 
 const payloadSchema = z.object({
   messages: z

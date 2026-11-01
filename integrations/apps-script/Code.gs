@@ -13,7 +13,9 @@
  * Luego ejecuta una vez `instalar` (crea el disparador) y `probarConexion`.
  */
 
-var QUERY = 'from:alertasynotificaciones@ayn.notificacionesbancolombia.com newer_than:3d';
+// Bancolombia usa dos remitentes (@ayn. y @an.). Gmail busca en todas las pestañas
+// (Principal, Promociones, Notificaciones…) y en archivados; solo excluye spam y papelera.
+var QUERY = 'from:(alertasynotificaciones@ayn.notificacionesbancolombia.com OR alertasynotificaciones@an.notificacionesbancolombia.com) newer_than:3d';
 var OVERLAP_MS = 15 * 60 * 1000; // vuelve a mirar 15 min hacia atrás; la app ignora duplicados
 var BATCH = 25;
 
@@ -71,9 +73,9 @@ function aMensaje_(m) {
 }
 
 /** Alertas recibidas después de `desdeMs`, de la más vieja a la más nueva. */
-function buscar_(desdeMs) {
+function buscar_(desdeMs, query) {
   var out = [];
-  var threads = GmailApp.search(QUERY, 0, 100);
+  var threads = GmailApp.search(query || QUERY, 0, 100);
   threads.forEach(function (t) {
     t.getMessages().forEach(function (m) {
       if (m.getDate().getTime() > desdeMs) out.push(m);
@@ -133,6 +135,21 @@ function probarConexion() {
     console.log(x.status + ' — ' + x.id);
   });
   console.log('Conexión OK. "creado" = entró a la app; "duplicado" = ya estaba.');
+}
+
+/**
+ * Reenvía las alertas de los últimos 10 días (por ejemplo, las del remitente @an. que antes
+ * no se leían). La app descarta las que ya tenía, así que se puede ejecutar sin miedo.
+ */
+function recuperarUltimos10Dias() {
+  var cfg = config_();
+  var mensajes = buscar_(0, QUERY.replace('newer_than:3d', 'newer_than:10d'));
+  var creados = 0;
+  for (var i = 0; i < mensajes.length; i += BATCH) {
+    var r = enviar_(cfg, mensajes.slice(i, i + BATCH).map(aMensaje_));
+    creados += r.results.filter(function (x) { return x.status === 'creado'; }).length;
+  }
+  console.log(mensajes.length + ' alertas revisadas, ' + creados + ' nuevas en la app.');
 }
 
 /** Detiene la sincronización (borra el disparador). */

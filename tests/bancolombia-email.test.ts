@@ -110,4 +110,28 @@ describe("parser de alertas Bancolombia", () => {
     expect(m.text).not.toContain("3001234567");
     expect(m.text).toContain("******4567");
   });
+
+  it("transferencia recibida (formato del remitente @an.)", () => {
+    expect(ok("transferencia-recibida-v2.txt")).toMatchObject({
+      type: "transferencia_recibida",
+      kind: "ingreso",
+      amount: 100000,
+      merchant: "PERSONA FICTICIA",
+      account: { type: "debito", last4: "1111" },
+      date: "2026-10-30",
+      occurredAt: "2026-10-30T14:57:00-05:00",
+    });
+  });
+
+  it("retiro del fondo de inversión: movimiento entre productos propios", () => {
+    expect(ok("inversion-retiro.txt")).toMatchObject({
+      type: "inversion",
+      kind: "transferencia_interna",
+      amount: 7000000,
+      merchant: "Retiro de Fiducuenta *2222",
+      account: { type: "otro", last4: "2222" },
+      date: "2026-10-23",
+      occurredAt: "2026-10-23T09:22:13-05:00",
+    });
+  });
 });
