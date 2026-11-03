@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyInactiveAccount, classifyIncoming, findAccount, matchRecurring, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
+import { applyInactiveAccount, classifyIncoming, findAccount, matchRecurring, skipReason, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
 import { deriveMemberKey, sign, verifySignature } from "@/lib/hmac";
 
 describe("firma HMAC", () => {
@@ -114,5 +114,16 @@ describe("cuentas desactivadas", () => {
     const c = classifyIncoming(m, "yo", [], []);
     expect(applyInactiveAccount(c, acct({ is_active: true }))).toBe(c);
     expect(applyInactiveAccount(c, null)).toBe(c);
+  });
+});
+
+describe("alertas que no se traen", () => {
+  const base = { kind: "gasto" as const, type: "compra_debito" as const, merchant: "D1", text: "Compraste $45.300 en D1" };
+  it("los gastos sí se traen", () => expect(skipReason(base)).toBeNull());
+  it("los ingresos no", () => expect(skipReason({ ...base, kind: "ingreso", type: "transferencia_recibida" })).toBe("ingreso"));
+  it("nada con la fiducia: retiros del fondo ni transferencias hacia o desde ella", () => {
+    expect(skipReason({ ...base, kind: "transferencia_interna", type: "inversion" })).toBe("fiducia");
+    expect(skipReason({ ...base, type: "transferencia_enviada", merchant: "FIDUCIARIA BANCOLOMBIA" })).toBe("fiducia");
+    expect(skipReason({ ...base, kind: "ingreso", type: "transferencia_recibida", merchant: "FIDUCUENTA", text: "Recibiste" })).toBe("fiducia");
   });
 });

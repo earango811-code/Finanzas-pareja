@@ -6,7 +6,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { dedupeKey } from "@/domain/dedupe";
-import { applyInactiveAccount, classifyIncoming, findAccount, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
+import { applyInactiveAccount, classifyIncoming, findAccount, skipReason, type IngestAccount, type IngestRule, type RecurringCandidate } from "@/domain/ingest";
 import { parseBancolombiaEmail } from "@/domain/parsers/bancolombia-email";
 import { addDays } from "@/domain/recurring";
 import { alertsMasterSecret, deriveMemberKey, sha256, verifySignature } from "@/lib/hmac";
@@ -124,6 +124,12 @@ export async function POST(req: NextRequest) {
       continue;
     }
     const m = parsed.movement;
+    // Ingresos y movimientos con la fiducia no se traen (quedan en el registro como no transaccionales)
+    const skip = skipReason(m);
+    if (skip) {
+      await finish("no_transaccional", `${skip === "fiducia" ? "Fiducia" : "Ingreso"} (no se trae): ${m.text}`.slice(0, 500));
+      continue;
+    }
 
     try {
       const account = findAccount(accounts, memberId, m.account);

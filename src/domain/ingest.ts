@@ -136,3 +136,15 @@ export function applyInactiveAccount(c: Classification, account: Pick<IngestAcco
   if (!account || account.is_active) return c;
   return { ...c, status: "ignorado", appliedRuleId: null, matchedRecurringId: null };
 }
+
+/**
+ * Alertas que no se traen a la app:
+ * - ingresos (transferencias o pagos recibidos): el ingreso de cada uno se maneja en Herramientas → Ingresos;
+ * - movimientos con la fiducia / fondo de inversión (Fiducuenta): plata que se mueve entre productos propios.
+ * null = sí se trae.
+ */
+export function skipReason(m: Pick<ParsedMovement, "kind" | "type" | "merchant" | "text">): "ingreso" | "fiducia" | null {
+  if (m.type === "inversion" || /fiduc|fondo de inversi[oó]n/i.test(`${m.merchant} ${m.text}`)) return "fiducia";
+  if (m.kind === "ingreso") return "ingreso";
+  return null;
+}
