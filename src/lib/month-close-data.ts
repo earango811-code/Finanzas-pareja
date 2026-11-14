@@ -7,6 +7,7 @@ import { computeSettlement } from "@/domain/split";
 import { netIncome } from "@/domain/types";
 import type { PocketMovementRow, PocketRow, TransactionRow } from "@/lib/db-types";
 import type { HouseholdContext } from "@/lib/household";
+import { membersForMonth } from "@/lib/incomes";
 import { loadMonth } from "@/lib/month-data";
 
 export interface ReconciliationInfo {
@@ -26,7 +27,7 @@ export interface MonthCloseRow {
 }
 
 export async function loadCloseData(ctx: HouseholdContext, month: string) {
-  const { supabase, me, members, categories, accounts } = ctx;
+  const { supabase, me, categories, accounts } = ctx;
   const { start, end } = monthRange(month);
   const [monthData, pocketsRes, movementsRes, closeRes, accountTxRes] = await Promise.all([
     loadMonth(ctx, month),
@@ -55,7 +56,9 @@ export async function loadCloseData(ctx: HouseholdContext, month: string) {
   const sharedPocketIds = new Set(pockets.filter((p) => p.owner_member_id === null).map((p) => p.id));
 
   // Saldos de los grupos de ahorro que van a su bolsillo
-  const income = members.reduce((a, m) => a + netIncome(m), 0);
+  // Ingresos de ESE mes (pueden variar): de ahí sale el % de reparto del cierre
+  const incomeMembers = await membersForMonth(ctx, month);
+  const income = incomeMembers.reduce((a, m) => a + netIncome(m), 0);
   const sharedRows = buildBudgetRows({ lines: monthData.budgets, categories, txs: monthData.txs, incomeBase: income, memberId: null });
   const links = categories
     .filter((c) => !c.parent_id && c.pocket_id)
@@ -73,8 +76,8 @@ export async function loadCloseData(ctx: HouseholdContext, month: string) {
   });
 
   const pocketTransfers = movements.filter((m) => sharedPocketIds.has(m.pocket_id)).reduce((a, m) => a + m.amount, 0);
-  const summary = computeMonthClose(members, monthData.txs, pocketTransfers);
-  const settlement = computeSettlement(members, monthData.txs);
+  const summary = computeMonthClose(incomeMembers, monthData.txs, pocketTransfers);
+  const settlement = computeSettlement(incomeMembers, monthData.txs);
 
   const accountTxs = accountTxRes.data ?? [];
   const reconcilable = accounts

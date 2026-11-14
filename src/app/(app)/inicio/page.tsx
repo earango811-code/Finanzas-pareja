@@ -8,6 +8,7 @@ import { formatCOP } from "@/domain/money";
 import { computeSettlement } from "@/domain/split";
 import { netIncome } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
+import { membersForMonth } from "@/lib/incomes";
 import { getHousehold, memberName } from "@/lib/household";
 import { loadMonth } from "@/lib/month-data";
 import { visualFor } from "@/lib/visual";
@@ -66,14 +67,15 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
     .sort((a, b) => (byId.get(a.key)?.sort_order ?? 999) - (byId.get(b.key)?.sort_order ?? 999));
 
   // Lo que queda para gastar (presupuesto compartido, sin Ahorro)
-  const totalIncome = members.reduce((a, m) => a + netIncome(m), 0);
+  const incomeMembers = await membersForMonth(ctx, month);
+  const totalIncome = incomeMembers.reduce((a, m) => a + netIncome(m), 0);
   const rows = buildBudgetRows({ lines: budgets, categories, txs, incomeBase: totalIncome, memberId: null }).filter((r) => r.group !== "ahorro");
   const budgeted = rows.reduce((a, r) => a + r.budgeted, 0);
   const spentBudget = rows.reduce((a, r) => a + r.spent, 0);
   const left = budgeted - spentBudget;
   const usedRatio = budgeted > 0 ? spentBudget / budgeted : 0;
 
-  const settlement = computeSettlement(members, txs);
+  const settlement = computeSettlement(incomeMembers, txs);
   const maxBar = Math.max(income, expenses, 1);
   const recent = recentRes.data ?? [];
 

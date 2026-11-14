@@ -59,6 +59,7 @@ export default async function PendientesPage() {
       paidById: t.paid_by_member_id,
       isMine: t.paid_by_member_id === me.id,
       source: t.source,
+      notes: t.notes ?? "",
       suggestion: suggest(t.merchant, rules.data ?? [], history.data ?? []),
     };
   });

@@ -37,6 +37,7 @@ const classifySchema = z.object({
   categoryId: uuid,
   remember: z.boolean().default(false),
   pocketId: uuid.nullable().default(null), // "pagado desde este bolsillo"
+  notes: z.string().trim().max(500).optional(), // nota adicional; undefined = no tocar la que tenga
 });
 
 /** Valida que los movimientos se puedan pagar desde el bolsillo (mismo ámbito y dueño). */
@@ -76,6 +77,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
         pocket_id: p.pocketId,
         identified_by: user.id,
         identified_at: new Date().toISOString(),
+        ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       })
       .in("id", p.ids)
       .select("merchant, kind");
@@ -103,6 +105,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
 const markSchema = z.object({
   ids: z.array(uuid).min(1).max(200),
   kind: z.enum(["transferencia_interna", "pago_tarjeta"]),
+  notes: z.string().trim().max(500).optional(),
 });
 
 /** Transferencias internas y pagos de tarjeta: no cuentan como gasto. */
@@ -112,7 +115,15 @@ export async function markAsTransfer(input: z.input<typeof markSchema>): Promise
     const { supabase, user } = await getHousehold();
     const { error } = await supabase
       .from("transactions")
-      .update({ status: "identificado", kind: p.kind, scope: null, category_id: null, identified_by: user.id, identified_at: new Date().toISOString() })
+      .update({
+        status: "identificado",
+        kind: p.kind,
+        scope: null,
+        category_id: null,
+        identified_by: user.id,
+        identified_at: new Date().toISOString(),
+        ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
+      })
       .in("id", p.ids);
     if (error) throw new Error(error.message);
     refresh();
@@ -251,32 +262,47 @@ export async function registerSettlement(input: z.input<typeof settleSchema>): P
 // Ajustes
 // ---------------------------------------------------------------------------
 
-const incomesSchema = z
-  .array(
-    z.object({
-      id: uuid,
-      monthly_income: pesos,
-      income_deductions: pesos,
-      deductions_note: z.string().trim().max(120).nullable(),
-    }),
-  )
-  .min(1)
-  .max(2);
+const incomesSchema = z.object({
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mes inválido"),
+  members: z
+    .array(
+      z.object({
+        id: uuid,
+        monthly_income: pesos,
+        income_deductions: pesos,
+        deductions_note: z.string().trim().max(120).nullable(),
+      }),
+    )
+    .min(1)
+    .max(2),
+});
 
-/** Ingresos de los dos de una vez: de ahí sale el % de reparto de los gastos compartidos. */
+/**
+ * Ingresos de los dos para un mes (ingresos variables): de ahí sale el % de reparto de los
+ * gastos compartidos de ese mes. Los meses siguientes sin ingreso propio toman este.
+ */
 export async function updateIncomes(input: z.input<typeof incomesSchema>): Promise<ActionResult> {
   try {
-    const list = incomesSchema.parse(input);
-    const { supabase, members } = await getHousehold();
-    for (const m of list) {
+    const p = incomesSchema.parse(input);
+    const { supabase, me, members } = await getHousehold();
+    for (const m of p.members) {
       if (!members.some((x) => x.id === m.id)) throw new Error("Miembro inválido");
       if (m.income_deductions > m.monthly_income) throw new Error("Los descuentos no pueden ser mayores que el ingreso");
-      const { id, ...fields } = m;
-      const { error } = await supabase.from("members").update(fields).eq("id", id);
-      if (error) throw new Error(error.message);
     }
+    const { error } = await supabase.from("member_incomes").upsert(
+      p.members.map((m) => ({
+        household_id: me.household_id,
+        member_id: m.id,
+        month: p.month,
+        monthly_income: m.monthly_income,
+        income_deductions: m.income_deductions,
+        deductions_note: m.deductions_note,
+      })),
+      { onConflict: "member_id,month" },
+    );
+    if (error) throw new Error(error.message);
     refresh();
-    return { ok: true, message: "Ingresos guardados: el reparto ya usa los nuevos %" };
+    return { ok: true, message: `Ingresos de ${monthLabel(p.month)} guardados: el reparto ya usa los nuevos %` };
   } catch (e) {
     return fail(e);
   }

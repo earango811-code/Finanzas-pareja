@@ -27,6 +27,7 @@ export interface PendingCard {
   paidById: string;
   isMine: boolean;
   source: TxSource;
+  notes: string;
   suggestion: Suggestion | null;
 }
 
@@ -196,11 +197,14 @@ export function PendingInbox({
                 categories={categories}
                 busy={pending}
                 defaultScope={s?.scope ?? null}
+                initialNotes={c.notes}
                 kind={c.kind}
                 pockets={pockets}
                 payerIds={[c.paidById]}
-                onClassify={(scope, categoryId, remember, pocketId) => run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember, pocketId }))}
-                onTransfer={(kind) => run(() => markAsTransfer({ ids: [c.id], kind }))}
+                onClassify={(scope, categoryId, remember, pocketId, notes) =>
+                  run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember, pocketId, notes }))
+                }
+                onTransfer={(kind, notes) => run(() => markAsTransfer({ ids: [c.id], kind, notes }))}
                 onIgnore={() => run(() => ignoreTransactions([c.id]))}
               />
             )}
@@ -241,6 +245,7 @@ function Classifier({
   categories,
   busy,
   defaultScope,
+  initialNotes,
   kind,
   pockets,
   payerIds,
@@ -251,17 +256,22 @@ function Classifier({
   categories: CategoryOption[];
   busy: boolean;
   defaultScope: TxScope | null;
+  /** Nota que ya tenga el movimiento. Con varios seleccionados no se muestra el campo. */
+  initialNotes?: string;
   kind: TxKind;
   pockets: PocketOption[];
   payerIds: string[];
-  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null) => void;
-  onTransfer: (kind: "transferencia_interna" | "pago_tarjeta") => void;
+  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null, notes?: string) => void;
+  onTransfer: (kind: "transferencia_interna" | "pago_tarjeta", notes?: string) => void;
   onIgnore: () => void;
 }) {
   const [scope, setScope] = useState<TxScope | null>(defaultScope);
   const [remember, setRemember] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [pocketId, setPocketId] = useState<string>("");
+  const [notes, setNotes] = useState(initialNotes ?? "");
+  const withNotes = initialNotes !== undefined;
+  const noteArg = withNotes ? notes : undefined;
   const options = scope ? categoriesFor(scope, categories, kind) : [];
   const pocketOptions = scope ? pocketsFor(scope, pockets, payerIds) : [];
   const chosenPocket = pocketOptions.some((p) => p.id === pocketId) ? pocketId : "";
@@ -274,6 +284,18 @@ function Classifier({
 
   return (
     <div className="flex flex-col gap-3 border-t border-[var(--line)] p-4">
+      {withNotes && (
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="muted">Notas adicionales (opcional)</span>
+          <textarea
+            className="input min-h-16 text-sm"
+            placeholder="Ej: regalo de cumpleaños de la mamá"
+            maxLength={500}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </label>
+      )}
       <div className="grid grid-cols-2 gap-2">
         {(["compartido", "personal"] as const).map((s) => (
           <button
@@ -304,7 +326,7 @@ function Classifier({
           {!showAll ? (
             <div className="flex flex-wrap gap-2">
               {quick.map((c) => (
-                <button key={c.id} className={`chip ${c.parentId ? "" : "font-semibold"}`} disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
+                <button key={c.id} className={`chip ${c.parentId ? "" : "font-semibold"}`} disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg)}>
                   <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                 </button>
               ))}
@@ -319,14 +341,14 @@ function Classifier({
                     <p className="muted mb-1 text-xs font-semibold uppercase tracking-wide">{visualFor(p.id, categories).icon} {p.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {kids.map((c) => (
-                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null)}>
+                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg)}>
                           <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                         </button>
                       ))}
                       <button
                         className={`chip ${kids.length ? "muted" : ""}`}
                         disabled={busy}
-                        onClick={() => onClassify(scope, p.id, remember, chosenPocket || null)}
+                        onClick={() => onClassify(scope, p.id, remember, chosenPocket || null, noteArg)}
                       >
                         {kids.length ? "General" : p.name}
                       </button>
@@ -345,10 +367,10 @@ function Classifier({
       )}
 
       <div className="flex flex-wrap gap-2 border-t border-dashed border-[var(--line)] pt-3 text-sm">
-        <button className="chip" disabled={busy} onClick={() => onTransfer("transferencia_interna")}>
+        <button className="chip" disabled={busy} onClick={() => onTransfer("transferencia_interna", noteArg)}>
           ↔ Transferencia interna
         </button>
-        <button className="chip" disabled={busy} onClick={() => onTransfer("pago_tarjeta")}>
+        <button className="chip" disabled={busy} onClick={() => onTransfer("pago_tarjeta", noteArg)}>
           💳 Pago de tarjeta
         </button>
         <button className="chip muted" disabled={busy} onClick={onIgnore}>

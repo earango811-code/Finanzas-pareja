@@ -3,6 +3,7 @@ import { SettleButton } from "@/components/settle-button";
 import { currentMonth, defaultMonth, isValidMonth, monthRange, todayBogota } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { computeSettlement, splitShares } from "@/domain/split";
+import { membersForMonth } from "@/lib/incomes";
 import { getHousehold, memberName } from "@/lib/household";
 import { loadMonth } from "@/lib/month-data";
 
@@ -12,7 +13,8 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const month = isValidMonth(sp.mes) ? sp.mes : defaultMonth((await getHousehold()).household.start_month);
   const ctx = await getHousehold();
-  const { members } = ctx;
+  // Ingresos de ESE mes (pueden variar): de ahí sale el % de reparto
+  const members = await membersForMonth(ctx, month);
   const { txs, pendingCount } = await loadMonth(ctx, month);
 
   const result = computeSettlement(members, txs);

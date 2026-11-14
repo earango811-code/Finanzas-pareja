@@ -5,6 +5,7 @@ import { currentMonth, isValidMonth, monthLabel, shiftMonth, todayBogota } from 
 import { groupLeftovers, monthLeftover, pocketSummary } from "@/domain/pockets";
 import { netIncome } from "@/domain/types";
 import type { PocketMovementRow, PocketRow, TransactionRow } from "@/lib/db-types";
+import { membersForMonth } from "@/lib/incomes";
 import { getHousehold } from "@/lib/household";
 import { loadMonth } from "@/lib/month-data";
 
@@ -60,10 +61,11 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
   });
 
   // Sobrante del mes: compartido y personal de cada uno
-  const totalIncome = members.reduce((a, m) => a + netIncome(m), 0);
+  const incomeMembers = await membersForMonth(ctx, leftoverMonth);
+  const totalIncome = incomeMembers.reduce((a, m) => a + netIncome(m), 0);
   const scopes: { key: string | null; label: string; income: number }[] = [
     { key: null, label: "Compartido", income: totalIncome },
-    ...members.map((m) => ({ key: m.id, label: m.id === me.id ? "Mío" : `De ${m.display_name}`, income: netIncome(m) })),
+    ...incomeMembers.map((m) => ({ key: m.id, label: m.id === me.id ? "Mío" : `De ${m.display_name}`, income: netIncome(m) })),
   ];
   const leftovers: LeftoverInfo[] = scopes.map((s) => {
     const rows = buildBudgetRows({ lines: monthData.budgets, categories, txs: monthData.txs, incomeBase: s.income, memberId: s.key });

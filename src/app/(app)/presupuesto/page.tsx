@@ -6,6 +6,7 @@ import { defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/date
 import { formatCOP, formatPct } from "@/domain/money";
 import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
 import type { TransactionRow } from "@/lib/db-types";
+import { membersForMonth } from "@/lib/incomes";
 import { getHousehold, memberName } from "@/lib/household";
 import { loadMonth } from "@/lib/month-data";
 import { visualFor } from "@/lib/visual";
@@ -72,8 +73,10 @@ export default async function PresupuestoPage({
   ]);
   const pocketName = new Map((pocketData ?? []).map((p) => [p.id, p.name]));
 
+  // Ingresos de ESE mes (pueden variar mes a mes)
+  const incomeMembers = await membersForMonth(ctx, month);
   const incomeBase =
-    memberId === null ? members.reduce((a, m) => a + netIncome(m), 0) : netIncome(members.find((m) => m.id === memberId)!);
+    memberId === null ? incomeMembers.reduce((a, m) => a + netIncome(m), 0) : netIncome(incomeMembers.find((m) => m.id === memberId)!);
 
   const rows = buildBudgetRows({ lines: budgets, categories, txs, incomeBase, memberId });
   const summary = summarizeGroups(rows, incomeBase, {

@@ -16,7 +16,18 @@ interface MemberIncome {
 
 const EXAMPLE = 100_000;
 
-export function IncomesEditor({ members }: { members: MemberIncome[] }) {
+export function IncomesEditor({
+  members,
+  month,
+  monthLabel,
+  carriedFrom,
+}: {
+  members: MemberIncome[];
+  month: string;
+  monthLabel: string;
+  /** Si el mes no tiene ingreso propio: el mes del que se tomó. */
+  carriedFrom: string | null;
+}) {
   const [rows, setRows] = useState(
     members.map((m) => ({ ...m, income: m.monthly_income as number | null, deductions: m.income_deductions as number | null, note: m.deductions_note ?? "" })),
   );
@@ -37,15 +48,25 @@ export function IncomesEditor({ members }: { members: MemberIncome[] }) {
 
   function save() {
     start(async () => {
-      const r = await updateIncomes(
-        rows.map((x) => ({ id: x.id, monthly_income: x.income ?? 0, income_deductions: x.deductions ?? 0, deductions_note: x.note || null })),
-      );
+      const r = await updateIncomes({
+        month,
+        members: rows.map((x) => ({ id: x.id, monthly_income: x.income ?? 0, income_deductions: x.deductions ?? 0, deductions_note: x.note || null })),
+      });
       setMsg(r.ok ? { text: r.message ?? "Guardado" } : { text: r.error, error: true });
     });
   }
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-10">
+      <p className="muted text-xs">
+        Los ingresos pueden cambiar cada mes. Lo que guarden aquí vale para <b className="capitalize">{monthLabel}</b> y para los
+        meses siguientes que no tengan su propio ingreso.
+        {carriedFrom && (
+          <>
+            {" "}Este mes todavía usa los ingresos de <b className="capitalize">{carriedFrom}</b>.
+          </>
+        )}
+      </p>
       <section className="card flex flex-col gap-3 p-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-semibold">Ingreso disponible de los dos</h2>
@@ -100,7 +121,7 @@ export function IncomesEditor({ members }: { members: MemberIncome[] }) {
       ))}
 
       <button className="btn btn-primary" disabled={busy} onClick={save}>
-        {busy ? "Guardando…" : "Guardar ingresos"}
+        {busy ? "Guardando…" : `Guardar ingresos de ${monthLabel}`}
       </button>
       {msg && <p className={`text-center text-sm ${msg.error ? "text-red-600" : "text-emerald-600"}`}>{msg.text}</p>}
       <p className="muted text-center text-xs">

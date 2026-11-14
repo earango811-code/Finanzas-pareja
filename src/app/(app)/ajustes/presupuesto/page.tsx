@@ -2,18 +2,23 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { BudgetEditor } from "@/components/settings";
 import { budgetCoverage, buildBudgetRows } from "@/domain/budget";
+import { defaultMonth, monthLabel } from "@/domain/dates";
 import { formatCOP, formatPct } from "@/domain/money";
 import { netIncome } from "@/domain/types";
 import type { BudgetRowDb } from "@/lib/db-types";
+import { membersForMonth } from "@/lib/incomes";
 import { getHousehold } from "@/lib/household";
 
 export const metadata = { title: "Presupuesto por grupo" };
 
 export default async function PresupuestoGruposPage() {
-  const { supabase, me, members, categories } = await getHousehold();
+  const ctx = await getHousehold();
+  const { supabase, me, members, categories, household } = ctx;
+  const month = defaultMonth(household.start_month);
+  const incomeMembers = await membersForMonth(ctx, month);
   const { data } = await supabase.from("budgets").select("*").eq("household_id", me.household_id).returns<BudgetRowDb[]>();
   const budgets = data ?? [];
-  const income = members.reduce((a, m) => a + netIncome(m), 0);
+  const income = incomeMembers.reduce((a, m) => a + netIncome(m), 0);
   const rows = buildBudgetRows({ lines: budgets, categories, txs: [], incomeBase: income, memberId: null });
   const c = budgetCoverage(rows, income);
   const memberOpts = members.map((m) => ({ id: m.id, name: m.id === me.id ? `${m.display_name} (yo)` : m.display_name }));
@@ -24,7 +29,9 @@ export default async function PresupuestoGruposPage() {
       <div className="flex flex-col gap-4 px-4 pb-8">
         <section className="card flex flex-col gap-1 p-4 text-sm">
           <div className="flex justify-between">
-            <span className="muted">Ingresos de los dos</span>
+            <span className="muted">
+              Ingresos de los dos · <span className="capitalize">{monthLabel(month)}</span>
+            </span>
             <span className="tabular font-semibold">{formatCOP(c.income)}</span>
           </div>
           <div className="flex justify-between">
