@@ -75,6 +75,7 @@ export interface TransactionRow {
   notes: string | null;
   account_last4: string | null;
   pocket_id: string | null;
+  reimbursed_amount: number; // lo que otros te devuelven (pagaste por ellos)
   budget_month: string | null; // mes del presupuesto si lo movieron (YYYY-MM)
   month: string; // mes del presupuesto efectivo
   created_at: string;
@@ -92,7 +93,7 @@ export interface RuleRow {
 }
 
 export const TX_COLUMNS =
-  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, pocket_id, budget_month, month, created_at";
+  "id, occurred_on, occurred_at, amount, merchant, raw_description, account_id, paid_by_member_id, counterparty_member_id, source, status, scope, category_id, kind, notes, account_last4, pocket_id, reimbursed_amount, budget_month, month, created_at";
 
 export interface PocketRow {
   id: string;

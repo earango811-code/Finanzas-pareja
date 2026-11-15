@@ -1,6 +1,7 @@
 // Carga de los movimientos y presupuestos de un mes.
 // Se filtra por el mes del presupuesto (columna `month`): normalmente el de la fecha,
 // salvo que el movimiento se haya pasado a otro mes.
+import { ownAmount } from "@/domain/money";
 import type { BudgetRowDb, TransactionRow } from "@/lib/db-types";
 import type { HouseholdContext } from "@/lib/household";
 
@@ -8,11 +9,11 @@ export async function loadMonth(ctx: HouseholdContext, month: string) {
   const [txs, budgets, pending] = await Promise.all([
     ctx.supabase
       .from("transactions")
-      .select("amount, kind, scope, status, category_id, paid_by_member_id, counterparty_member_id, pocket_id")
+      .select("amount, reimbursed_amount, kind, scope, status, category_id, paid_by_member_id, counterparty_member_id, pocket_id")
       .eq("household_id", ctx.me.household_id)
       .eq("status", "identificado")
       .eq("month", month)
-      .returns<Pick<TransactionRow, "amount" | "kind" | "scope" | "status" | "category_id" | "paid_by_member_id" | "counterparty_member_id" | "pocket_id">[]>(),
+      .returns<Pick<TransactionRow, "amount" | "reimbursed_amount" | "kind" | "scope" | "status" | "category_id" | "paid_by_member_id" | "counterparty_member_id" | "pocket_id">[]>(),
     ctx.supabase.from("budgets").select("*").eq("household_id", ctx.me.household_id).returns<BudgetRowDb[]>(),
     ctx.supabase
       .from("transactions")
@@ -21,5 +22,6 @@ export async function loadMonth(ctx: HouseholdContext, month: string) {
       .eq("status", "pendiente")
       .eq("month", month),
   ]);
-  return { txs: txs.data ?? [], budgets: budgets.data ?? [], pendingCount: pending.count ?? 0 };
+  // En el presupuesto, el reparto y el cierre solo cuenta nuestra parte (sin lo que nos devuelven)
+  return { txs: (txs.data ?? []).map((t) => ({ ...t, amount: ownAmount(t) })), budgets: budgets.data ?? [], pendingCount: pending.count ?? 0 };
 }

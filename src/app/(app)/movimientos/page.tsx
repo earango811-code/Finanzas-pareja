@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { TxActions } from "@/components/tx-actions";
 import { currentMonth, defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/dates";
-import { formatCOP } from "@/domain/money";
+import { formatCOP, ownAmount } from "@/domain/money";
 import { pocketFitsTx } from "@/domain/pockets";
 import { KIND_LABEL } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
@@ -97,11 +97,16 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
                     {t.account_id && ` · ${acctName.get(t.account_id)}`}
                   </p>
                   {t.pocket_id && <p className="text-xs text-[var(--color-brand)]">🐷 Pagado desde {pocketName.get(t.pocket_id) ?? "bolsillo"}</p>}
+                  {t.reimbursed_amount > 0 && (
+                    <p className="text-xs text-sky-700">
+                      👥 Pagaste {formatCOP(t.amount)} · te devuelven {formatCOP(t.reimbursed_amount)}
+                    </p>
+                  )}
                   {t.budget_month && <p className="text-xs text-amber-700">📅 Fecha real {shortDate(t.occurred_on)} · cuenta en {monthLabel(t.budget_month)}</p>}
                 </div>
                 <p className={`tabular text-sm font-semibold ${t.kind === "ingreso" ? "text-emerald-600" : ""}`}>
                   {t.kind === "ingreso" ? "+" : ""}
-                  {formatCOP(t.amount)}
+                  {formatCOP(ownAmount(t))}
                 </p>
                 </Link>
                 <TxActions

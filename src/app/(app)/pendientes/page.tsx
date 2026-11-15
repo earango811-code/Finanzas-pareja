@@ -60,6 +60,7 @@ export default async function PendientesPage() {
       isMine: t.paid_by_member_id === me.id,
       source: t.source,
       notes: t.notes ?? "",
+      reimbursed: t.reimbursed_amount ?? 0,
       suggestion: suggest(t.merchant, rules.data ?? [], history.data ?? []),
     };
   });

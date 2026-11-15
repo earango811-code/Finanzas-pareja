@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { PocketsManager, type GroupClose, type LeftoverInfo, type PocketView } from "@/components/pockets-manager";
 import { buildBudgetRows } from "@/domain/budget";
 import { currentMonth, isValidMonth, monthLabel, shiftMonth, todayBogota } from "@/domain/dates";
+import { ownAmount } from "@/domain/money";
 import { groupLeftovers, monthLeftover, pocketSummary } from "@/domain/pockets";
 import { netIncome } from "@/domain/types";
 import type { PocketMovementRow, PocketRow, TransactionRow } from "@/lib/db-types";
@@ -25,15 +26,15 @@ export default async function BolsillosPage({ searchParams }: { searchParams: Pr
     supabase.from("pocket_movements").select("*").eq("household_id", me.household_id).order("occurred_on", { ascending: false }).returns<PocketMovementRow[]>(),
     supabase
       .from("transactions")
-      .select("id, pocket_id, amount, kind, status, merchant, occurred_on")
+      .select("id, pocket_id, amount, reimbursed_amount, kind, status, merchant, occurred_on")
       .eq("household_id", me.household_id)
       .not("pocket_id", "is", null)
       .order("occurred_on", { ascending: false })
-      .returns<Pick<TransactionRow, "id" | "pocket_id" | "amount" | "kind" | "status" | "merchant" | "occurred_on">[]>(),
+      .returns<Pick<TransactionRow, "id" | "pocket_id" | "amount" | "reimbursed_amount" | "kind" | "status" | "merchant" | "occurred_on">[]>(),
     loadMonth(ctx, leftoverMonth),
   ]);
   const movements = movementsRes.data ?? [];
-  const pocketTxs = txRes.data ?? [];
+  const pocketTxs = (txRes.data ?? []).map((t) => ({ ...t, amount: ownAmount(t) }));
 
   const pockets: PocketView[] = (pocketsRes.data ?? []).map((p) => {
     const mv = movements.filter((m) => m.pocket_id === p.id);

@@ -3,7 +3,7 @@ import { CatIcon } from "@/components/cat-icon";
 import { PageHeader } from "@/components/page-header";
 import { budgetCoverage, buildBudgetRows, summarizeGroups, type BudgetRow } from "@/domain/budget";
 import { defaultMonth, isValidMonth, monthLabel, shortDate } from "@/domain/dates";
-import { formatCOP, formatPct } from "@/domain/money";
+import { formatCOP, formatPct, ownAmount } from "@/domain/money";
 import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
 import type { TransactionRow } from "@/lib/db-types";
 import { membersForMonth } from "@/lib/incomes";
@@ -61,7 +61,7 @@ export default async function PresupuestoPage({
     // Movimiento por movimiento de cada grupo (al tocar el grupo)
     ctx.supabase
       .from("transactions")
-      .select("id, occurred_on, amount, kind, merchant, category_id, scope, paid_by_member_id, pocket_id")
+      .select("id, occurred_on, amount, reimbursed_amount, kind, merchant, category_id, scope, paid_by_member_id, pocket_id")
       .eq("household_id", me.household_id)
       .eq("status", "identificado")
       .eq("month", month)
@@ -69,7 +69,7 @@ export default async function PresupuestoPage({
       .not("category_id", "is", null)
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false })
-      .returns<Pick<TransactionRow, "id" | "occurred_on" | "amount" | "kind" | "merchant" | "category_id" | "scope" | "paid_by_member_id" | "pocket_id">[]>(),
+      .returns<Pick<TransactionRow, "id" | "occurred_on" | "amount" | "reimbursed_amount" | "kind" | "merchant" | "category_id" | "scope" | "paid_by_member_id" | "pocket_id">[]>(),
   ]);
   const pocketName = new Map((pocketData ?? []).map((p) => [p.id, p.name]));
 
@@ -158,11 +158,12 @@ export default async function PresupuestoPage({
                         {shortDate(t.occurred_on)}
                         {c?.parent_id ? ` · ${c.name}` : ""} · {memberName(ctx, t.paid_by_member_id)}
                         {t.pocket_id && ` · 🐷 desde ${pocketName.get(t.pocket_id) ?? "bolsillo"} (no cuenta)`}
+                        {t.reimbursed_amount > 0 && ` · pagaste ${formatCOP(t.amount)}, te devuelven ${formatCOP(t.reimbursed_amount)}`}
                       </span>
                     </span>
                     <span className={`tabular shrink-0 font-medium ${t.kind === "ingreso" ? "text-emerald-600" : ""} ${t.pocket_id ? "muted line-through" : ""}`}>
                       {t.kind === "ingreso" ? "+" : ""}
-                      {formatCOP(t.amount)}
+                      {formatCOP(ownAmount(t))}
                     </span>
                   </Link>
                 </li>

@@ -4,7 +4,7 @@ import { Donut, type DonutSlice } from "@/components/donut";
 import { PageHeader } from "@/components/page-header";
 import { buildBudgetRows, rootCategoryId } from "@/domain/budget";
 import { defaultMonth, isValidMonth, shortDate } from "@/domain/dates";
-import { formatCOP } from "@/domain/money";
+import { formatCOP, ownAmount } from "@/domain/money";
 import { computeSettlement } from "@/domain/split";
 import { netIncome } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
@@ -188,7 +188,7 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
                     </div>
                     <span className={`tabular text-sm font-semibold ${t.kind === "ingreso" ? "text-emerald-600" : ""}`}>
                       {t.kind === "ingreso" ? "+" : "−"}
-                      {formatCOP(t.amount)}
+                      {formatCOP(ownAmount(t))}
                     </span>
                     </Link>
                   </li>

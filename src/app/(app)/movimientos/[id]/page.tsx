@@ -69,11 +69,12 @@ export default async function MovimientoPage({
           pocketId: tx.pocket_id,
           merchant: tx.merchant ?? "",
           notes: tx.notes ?? "",
+          reimbursedAmount: tx.reimbursed_amount ?? 0,
           status: tx.status,
           canDelete: tx.source === "manual" || tx.source === "recurrente",
         }}
         members={members.map((m) => ({ id: m.id, name: m.id === me.id ? "Yo" : m.display_name }))}
-        accounts={accounts.filter((a) => a.is_active || a.id === tx.account_id).map((a) => ({ id: a.id, name: a.name, ownerId: a.owner_member_id }))}
+        accounts={accounts.filter((a) => a.is_active || a.id === tx.account_id).map((a) => ({ id: a.id, name: a.name, ownerId: a.owner_member_id, type: a.type }))}
         categories={toOptions(cats)}
         pockets={pockets ?? []}
       />

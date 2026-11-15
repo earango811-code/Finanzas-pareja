@@ -38,6 +38,7 @@ const classifySchema = z.object({
   remember: z.boolean().default(false),
   pocketId: uuid.nullable().default(null), // "pagado desde este bolsillo"
   notes: z.string().trim().max(500).optional(), // nota adicional; undefined = no tocar la que tenga
+  reimbursedAmount: pesos.optional(), // "me devuelven": solo con un movimiento
 });
 
 /** Valida que los movimientos se puedan pagar desde el bolsillo (mismo ámbito y dueño). */
@@ -62,6 +63,11 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
   try {
     const p = classifySchema.parse(input);
     const { supabase, me, user } = await getHousehold();
+    if (p.reimbursedAmount) {
+      if (p.ids.length !== 1) throw new Error("Lo que te devuelven se pone de a un movimiento");
+      const { data: one } = await supabase.from("transactions").select("amount").eq("id", p.ids[0]).single<{ amount: number }>();
+      if (!one || p.reimbursedAmount >= one.amount) throw new Error("Lo que te devuelven debe ser menor que el valor pagado");
+    }
 
     if (p.pocketId) {
       const { data: current } = await supabase.from("transactions").select("paid_by_member_id").in("id", p.ids);
@@ -78,6 +84,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
         identified_by: user.id,
         identified_at: new Date().toISOString(),
         ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
+        ...(p.reimbursedAmount !== undefined ? { reimbursed_amount: p.reimbursedAmount } : {}),
       })
       .in("id", p.ids)
       .select("merchant, kind");
@@ -194,6 +201,7 @@ const manualSchema = z.object({
   paidBy: uuid,
   rawText: z.string().max(300).optional(),
   pocketId: uuid.nullable().default(null),
+  reimbursedAmount: pesos.default(0), // pagaste por otros: lo que te devuelven
 });
 
 export async function createManualTransaction(input: z.input<typeof manualSchema>): Promise<ActionResult> {
@@ -202,6 +210,9 @@ export async function createManualTransaction(input: z.input<typeof manualSchema
     const { supabase, me, members } = await getHousehold();
     if (!members.some((m) => m.id === p.paidBy)) throw new Error("Miembro inválido");
     const complete = p.scope !== null && (p.categoryId !== null || p.kind === "ingreso");
+    if (p.reimbursedAmount && (p.kind !== "gasto" || p.reimbursedAmount >= p.amount)) {
+      throw new Error("Lo que te devuelven debe ser menor que el valor pagado");
+    }
     if (p.pocketId) await assertPocketFits(supabase, p.pocketId, [{ scope: p.scope, paid_by_member_id: p.paidBy }]);
     const { error } = await supabase.from("transactions").insert({
       pocket_id: p.pocketId,
@@ -217,6 +228,7 @@ export async function createManualTransaction(input: z.input<typeof manualSchema
       paid_by_member_id: p.paidBy,
       source: "manual",
       status: complete ? "identificado" : "pendiente",
+      reimbursed_amount: p.reimbursedAmount,
     });
     if (error) throw new Error(error.message);
     refresh();
@@ -955,6 +967,7 @@ const txUpdateSchema = z.object({
   pocketId: uuid.nullable().default(null),
   merchant: z.string().trim().max(120).default(""),
   notes: z.string().trim().max(500).default(""),
+  reimbursedAmount: pesos.default(0),
 });
 
 export async function updateTransaction(input: z.input<typeof txUpdateSchema>): Promise<ActionResult> {
@@ -988,6 +1001,8 @@ export async function updateTransaction(input: z.input<typeof txUpdateSchema>): 
     );
     if ("error" in r) throw new Error(r.error);
     const v = r.value;
+    const reimbursed = v.kind === "gasto" ? p.reimbursedAmount : 0;
+    if (reimbursed >= p.amount) throw new Error("Lo que te devuelven debe ser menor que el valor pagado");
     if (v.pocketId) await assertPocketFits(supabase, v.pocketId, [{ scope: v.scope, paid_by_member_id: p.paidBy }]);
 
     const becameIdentified = r.status === "identificado" && tx.status !== "identificado";
@@ -1006,6 +1021,7 @@ export async function updateTransaction(input: z.input<typeof txUpdateSchema>): 
         account_id: p.accountId,
         merchant: p.merchant || null,
         notes: p.notes || null,
+        reimbursed_amount: reimbursed,
         status: r.status,
         ...(becameIdentified ? { identified_by: user.id, identified_at: new Date().toISOString() } : {}),
         ...(r.status === "pendiente" ? { identified_by: null, identified_at: null } : {}),

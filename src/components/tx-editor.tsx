@@ -25,6 +25,7 @@ export interface EditableTx {
   pocketId: string | null;
   merchant: string;
   notes: string;
+  reimbursedAmount: number;
   status: TxStatus;
   canDelete: boolean;
 }
@@ -33,7 +34,7 @@ interface Props {
   tx: EditableTx;
   backHref: string;
   members: { id: string; name: string }[];
-  accounts: { id: string; name: string; ownerId: string }[];
+  accounts: { id: string; name: string; ownerId: string; type: string }[];
   categories: CategoryOption[];
   pockets: { id: string; name: string; owner_member_id: string | null }[];
 }
@@ -55,6 +56,7 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
   const [pocketId, setPocketId] = useState(tx.pocketId ?? "");
   const [merchant, setMerchant] = useState(tx.merchant);
   const [notes, setNotes] = useState(tx.notes);
+  const [reimbursed, setReimbursed] = useState<number | null>(tx.reimbursedAmount || null);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, start] = useTransition();
 
@@ -103,6 +105,7 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
         pocketId: isSpend && pocketChoices.some((p) => p.id === pocketId) ? pocketId : null,
         merchant,
         notes,
+        reimbursedAmount: kind === "gasto" ? (reimbursed ?? 0) : 0,
       }),
     );
   }
@@ -116,6 +119,7 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
         />
         <MoneyInput value={amount} onValueChange={setAmount} placeholder="Valor" />
         <span className="muted text-xs">{STATUS_LABEL[tx.status]}</span>
+        {kind === "gasto" && <ReimbursedField amount={amount} value={reimbursed} onChange={setReimbursed} />}
       </div>
 
       <section className="card flex flex-col gap-3 p-4">
@@ -239,11 +243,11 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
             </label>
           ) : (
             <label className="flex flex-col gap-1 text-xs">
-              Cuenta
+              Pagó con
               <select className="input" value={accountId ?? ""} onChange={(e) => setAccountId(e.target.value || null)}>
                 <option value="">Sin cuenta</option>
                 {ownAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
+                  <option key={a.id} value={a.id}>{a.type === "efectivo" ? `💵 ${a.name}` : a.name}</option>
                 ))}
               </select>
             </label>
@@ -285,6 +289,32 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** "Pagué por otros": lo que te devuelven no cuenta en el presupuesto; el banco muestra el valor completo. */
+export function ReimbursedField({ amount, value, onChange }: { amount: number | null; value: number | null; onChange: (n: number | null) => void }) {
+  const [open, setOpen] = useState(!!value);
+  const own = (amount ?? 0) - (value ?? 0);
+  if (!open) {
+    return (
+      <button type="button" className="self-start text-sm font-medium text-[var(--color-brand)]" onClick={() => setOpen(true)}>
+        👥 Pagué por otros (me devuelven una parte)
+      </button>
+    );
+  }
+  return (
+    <div className="flex w-full flex-col gap-1 rounded-xl bg-[var(--bg)] p-3 text-xs">
+      <span className="font-semibold">👥 Pagaste por otros: ¿cuánto te devuelven?</span>
+      <MoneyInput value={value} onValueChange={onChange} placeholder="Lo que te devuelven" />
+      {amount ? (
+        <span className={own <= 0 ? "text-red-600" : "muted"}>
+          {own <= 0
+            ? "Debe ser menor que el valor pagado"
+            : `Al presupuesto va solo nuestra parte: ${formatCOP(own)}. En el banco se concilia el valor completo.`}
+        </span>
+      ) : null}
     </div>
   );
 }

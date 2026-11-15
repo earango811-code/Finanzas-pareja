@@ -33,7 +33,10 @@ export function ReconcileAccount({ month, account, info, closed }: Props) {
   const inMonth = parsed.lines.filter((l) => l.date >= from && l.date < to);
   const outside = parsed.lines.length - inMonth.length;
   const result = useMemo(() => reconcile(inMonth, account.txs.filter((t) => !removed.has(t.id))), [inMonth, account.txs, removed]);
-  const missing = result.onlyInBank.map((l, i) => ({ l, key: lineKey(l, i) }));
+  // Solo las salidas de plata se agregan. Las entradas (lo que te devuelven, ingresos,
+  // traslados) se muestran aparte: los ingresos no se registran en la app.
+  const missing = result.onlyInBank.map((l, i) => ({ l, key: lineKey(l, i) })).filter((m) => m.l.direction === "debito");
+  const incoming = result.onlyInBank.filter((l) => l.direction === "credito");
   const selected = picked ?? new Set(missing.map((m) => m.key));
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>, after?: () => void) =>
@@ -81,7 +84,7 @@ export function ReconcileAccount({ month, account, info, closed }: Props) {
             <>
               <p className="muted text-xs">
                 Descarga los movimientos de esta cuenta en la Sucursal Virtual de Bancolombia (CSV) y súbelos aquí, o copia y pega
-                las filas del extracto (fecha, descripción y valor).
+                las filas del extracto (fecha, descripción y valor). Los pagos en efectivo no van aquí: no pasan por el banco.
               </p>
               <input
                 type="file"
@@ -116,7 +119,7 @@ export function ReconcileAccount({ month, account, info, closed }: Props) {
               </p>
 
               <section className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold">En el banco y no en la app ({missing.length})</h3>
+                <h3 className="text-xs font-semibold">Gastos en el banco que no están en la app ({missing.length})</h3>
                 {missing.length === 0 ? (
                   <p className="muted text-xs">Nada que agregar.</p>
                 ) : (
@@ -139,10 +142,7 @@ export function ReconcileAccount({ month, account, info, closed }: Props) {
                               <span className="block truncate">{l.description}</span>
                               <span className="muted text-xs">{shortDate(l.date)}</span>
                             </span>
-                            <span className={`tabular font-semibold ${l.direction === "credito" ? "text-emerald-600" : ""}`}>
-                              {l.direction === "credito" ? "+" : "−"}
-                              {formatCOP(l.amount)}
-                            </span>
+                            <span className="tabular font-semibold">−{formatCOP(l.amount)}</span>
                           </label>
                         </li>
                       ))}
@@ -160,6 +160,27 @@ export function ReconcileAccount({ month, account, info, closed }: Props) {
                   </>
                 )}
               </section>
+
+              {incoming.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer font-semibold">
+                    Entradas de plata ({incoming.length}) · no se registran
+                  </summary>
+                  <p className="muted mt-1">
+                    Ingresos, traslados y lo que te devuelven cuando pagaste por otros. Lo que te devuelven ya está descontado
+                    en el gasto (“Pagué por otros”), así que no hay que agregarlo.
+                  </p>
+                  <ul className="card mt-2 divide-y divide-[var(--line)]">
+                    {incoming.map((l, i) => (
+                      <li key={lineKey(l, i)} className="flex items-center gap-2 px-3 py-2">
+                        <span className="min-w-0 flex-1 truncate">{l.description}</span>
+                        <span className="muted">{shortDate(l.date)}</span>
+                        <span className="tabular font-semibold text-emerald-600">+{formatCOP(l.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
 
               <section className="flex flex-col gap-2">
                 <h3 className="text-xs font-semibold">En la app y no en el banco ({result.onlyInApp.length})</h3>

@@ -9,6 +9,7 @@ import { parseQuickEntry } from "@/domain/quick-entry";
 import type { TxScope } from "@/domain/types";
 import type { CategoryOption } from "@/lib/categories";
 import { visualFor } from "@/lib/visual";
+import { ReimbursedField } from "@/components/tx-editor";
 
 interface Props {
   today: string;
@@ -39,6 +40,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
   );
   const [date, setDate] = useState(today);
   const [pocketId, setPocketId] = useState("");
+  const [reimbursed, setReimbursed] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, start] = useTransition();
 
@@ -89,6 +91,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
         paidBy,
         rawText: text || undefined,
         pocketId: kind === "gasto" && pocketChoices.some((p) => p.id === pocketId) ? pocketId : null,
+        reimbursedAmount: kind === "gasto" ? (reimbursed ?? 0) : 0,
       });
       if (!r.ok) return setMsg({ text: r.error, error: true });
       setMsg({ text: r.message ?? "Registrado" });
@@ -98,6 +101,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
       setCategoryId(null);
       setScope(null);
       setPocketId("");
+      setReimbursed(null);
       setDate(today);
       router.refresh();
     });
@@ -129,6 +133,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
         </div>
 
         <MoneyInput value={amount} onValueChange={setAmount} placeholder="Valor" />
+        {kind === "gasto" && <ReimbursedField key={msg?.text ?? ""} amount={amount} value={reimbursed} onChange={setReimbursed} />}
         <input className="input" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} />
 
         <div className="grid grid-cols-2 gap-2">
@@ -197,11 +202,11 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs">
-            Cuenta
+            Pagó con
             <select className="input" value={accountId ?? ""} onChange={(e) => setAccountId(e.target.value || null)}>
               <option value="">Sin cuenta</option>
               {ownAccounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>{a.type === "efectivo" ? `💵 ${a.name}` : a.name}</option>
               ))}
             </select>
           </label>

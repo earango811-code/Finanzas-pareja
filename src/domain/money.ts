@@ -50,6 +50,14 @@ export function parseAmountString(input: string): number | null {
 }
 
 /** Igual que parseAmountString pero redondeado a peso entero. */
+/**
+ * Lo que de verdad nos cuesta un movimiento: si pagaste la cuenta de varios y te devuelven
+ * su parte, solo cuenta lo tuyo. El valor completo se usa en la conciliación con el banco.
+ */
+export function ownAmount(t: { amount: number; reimbursed_amount?: number | null }): number {
+  return t.amount - (t.reimbursed_amount ?? 0);
+}
+
 export function parsePesos(input: string): number | null {
   const n = parseAmountString(input);
   return n === null ? null : Math.round(n);

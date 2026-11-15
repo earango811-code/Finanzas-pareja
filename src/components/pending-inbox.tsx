@@ -15,6 +15,7 @@ import type { TxKind, TxScope, TxSource } from "@/domain/types";
 import type { CategoryOption } from "@/lib/categories";
 import { visualFor } from "@/lib/visual";
 import { CatIcon } from "@/components/cat-icon";
+import { ReimbursedField } from "@/components/tx-editor";
 
 export interface PendingCard {
   id: string;
@@ -28,6 +29,7 @@ export interface PendingCard {
   isMine: boolean;
   source: TxSource;
   notes: string;
+  reimbursed: number;
   suggestion: Suggestion | null;
 }
 
@@ -198,11 +200,13 @@ export function PendingInbox({
                 busy={pending}
                 defaultScope={s?.scope ?? null}
                 initialNotes={c.notes}
+                amount={c.amount}
+                initialReimbursed={c.reimbursed}
                 kind={c.kind}
                 pockets={pockets}
                 payerIds={[c.paidById]}
-                onClassify={(scope, categoryId, remember, pocketId, notes) =>
-                  run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember, pocketId, notes }))
+                onClassify={(scope, categoryId, remember, pocketId, notes, reimbursedAmount) =>
+                  run(() => classifyTransactions({ ids: [c.id], scope, categoryId, remember, pocketId, notes, reimbursedAmount }))
                 }
                 onTransfer={(kind, notes) => run(() => markAsTransfer({ ids: [c.id], kind, notes }))}
                 onIgnore={() => run(() => ignoreTransactions([c.id]))}
@@ -246,6 +250,8 @@ function Classifier({
   busy,
   defaultScope,
   initialNotes,
+  amount,
+  initialReimbursed,
   kind,
   pockets,
   payerIds,
@@ -258,10 +264,12 @@ function Classifier({
   defaultScope: TxScope | null;
   /** Nota que ya tenga el movimiento. Con varios seleccionados no se muestra el campo. */
   initialNotes?: string;
+  amount?: number;
+  initialReimbursed?: number;
   kind: TxKind;
   pockets: PocketOption[];
   payerIds: string[];
-  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null, notes?: string) => void;
+  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null, notes?: string, reimbursedAmount?: number) => void;
   onTransfer: (kind: "transferencia_interna" | "pago_tarjeta", notes?: string) => void;
   onIgnore: () => void;
 }) {
@@ -272,6 +280,8 @@ function Classifier({
   const [notes, setNotes] = useState(initialNotes ?? "");
   const withNotes = initialNotes !== undefined;
   const noteArg = withNotes ? notes : undefined;
+  const [reimbursed, setReimbursed] = useState<number | null>(initialReimbursed || null);
+  const reimbArg = withNotes && kind !== "ingreso" ? (reimbursed ?? 0) : undefined;
   const options = scope ? categoriesFor(scope, categories, kind) : [];
   const pocketOptions = scope ? pocketsFor(scope, pockets, payerIds) : [];
   const chosenPocket = pocketOptions.some((p) => p.id === pocketId) ? pocketId : "";
@@ -296,6 +306,7 @@ function Classifier({
           />
         </label>
       )}
+      {withNotes && kind !== "ingreso" && <ReimbursedField amount={amount ?? null} value={reimbursed} onChange={setReimbursed} />}
       <div className="grid grid-cols-2 gap-2">
         {(["compartido", "personal"] as const).map((s) => (
           <button
@@ -326,7 +337,7 @@ function Classifier({
           {!showAll ? (
             <div className="flex flex-wrap gap-2">
               {quick.map((c) => (
-                <button key={c.id} className={`chip ${c.parentId ? "" : "font-semibold"}`} disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg)}>
+                <button key={c.id} className={`chip ${c.parentId ? "" : "font-semibold"}`} disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg, reimbArg)}>
                   <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                 </button>
               ))}
@@ -341,14 +352,14 @@ function Classifier({
                     <p className="muted mb-1 text-xs font-semibold uppercase tracking-wide">{visualFor(p.id, categories).icon} {p.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {kids.map((c) => (
-                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg)}>
+                        <button key={c.id} className="chip" disabled={busy} onClick={() => onClassify(scope, c.id, remember, chosenPocket || null, noteArg, reimbArg)}>
                           <span aria-hidden>{visualFor(c.id, categories).icon}</span> {c.name}
                         </button>
                       ))}
                       <button
                         className={`chip ${kids.length ? "muted" : ""}`}
                         disabled={busy}
-                        onClick={() => onClassify(scope, p.id, remember, chosenPocket || null, noteArg)}
+                        onClick={() => onClassify(scope, p.id, remember, chosenPocket || null, noteArg, reimbArg)}
                       >
                         {kids.length ? "General" : p.name}
                       </button>

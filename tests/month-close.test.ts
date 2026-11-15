@@ -118,3 +118,17 @@ describe("computeMonthClose", () => {
     expect(s.members[0].finalIncome / s.savedTotal).toBeCloseTo(0.6);
   });
 });
+
+describe("pagué por otros (me devuelven)", () => {
+  it("al presupuesto y al reparto va solo nuestra parte; en el banco se concilia el valor completo", async () => {
+    const { ownAmount } = await import("@/domain/money");
+    const cuenta = { amount: 300_000, reimbursed_amount: 200_000 };
+    expect(ownAmount(cuenta)).toBe(100_000);
+    expect(ownAmount({ amount: 50_000 })).toBe(50_000);
+    // La conciliación usa el valor completo del movimiento
+    const r = reconcile([{ date: "2026-11-05", amount: 300_000, direction: "debito", description: "RESTAURANTE" }], [
+      { id: "cena", date: "2026-11-05", amount: cuenta.amount, kind: "gasto", description: "RESTAURANTE" },
+    ]);
+    expect(r.matched.map((m) => m.tx.id)).toEqual(["cena"]);
+  });
+});
