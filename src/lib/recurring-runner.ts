@@ -1,3 +1,4 @@
+import { isComplete } from "@/domain/types";
 // Genera los movimientos de las recurrentes que ya vencieron. Se llama al abrir la app:
 // con dos usuarios no hace falta un cron, y la llave de deduplicación hace que
 // llamarlo dos veces (o los dos a la vez) no cree duplicados.
@@ -39,7 +40,7 @@ export async function materializeRecurring(ctx: { supabase: SupabaseClient; me: 
   for (const r of due) {
     const { dates, nextDate, finished } = dueOccurrences(r, today);
     if (dates.length) {
-      const complete = r.scope !== null && (r.category_id !== null || r.kind === "ingreso");
+      const complete = isComplete({ kind: r.kind, scope: r.scope, category_id: r.category_id });
       const rows = dates.map((date) => ({
         household_id: me.household_id,
         occurred_on: date,

@@ -7,7 +7,7 @@ import { pocketFitsTx } from "@/domain/pockets";
 import { firstOccurrence, firstOnOrAfter, type Frequency } from "@/domain/recurring";
 import { rulePatternFor } from "@/domain/rules";
 import { normalizeTxEdit } from "@/domain/tx-edit";
-import type { TxStatus } from "@/domain/types";
+import { isComplete, type TxKind, type TxScope, type TxStatus } from "@/domain/types";
 import { getHousehold } from "@/lib/household";
 import { isWeakPin, normalizeEmail, PIN_REGEX, pinToPassword } from "@/lib/pin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -34,7 +34,7 @@ function refresh() {
 const classifySchema = z.object({
   ids: z.array(uuid).min(1).max(200),
   scope: z.enum(["compartido", "personal"]),
-  categoryId: uuid,
+  categoryId: uuid.nullable(), // lo personal no lleva categoría
   remember: z.boolean().default(false),
   pocketId: uuid.nullable().default(null), // "pagado desde este bolsillo"
   notes: z.string().trim().max(500).optional(), // nota adicional; undefined = no tocar la que tenga
@@ -62,6 +62,9 @@ async function assertPocketFits(
 export async function classifyTransactions(input: z.input<typeof classifySchema>): Promise<ActionResult> {
   try {
     const p = classifySchema.parse(input);
+    if (p.scope === "compartido" && !p.categoryId) throw new Error("Elige el grupo del gasto compartido");
+    // Lo personal no lleva categoría (solo la descripción en la nota); un ingreso conserva la suya
+    const categoryId = p.scope === "personal" ? null : p.categoryId;
     const { supabase, me, user } = await getHousehold();
     if (p.reimbursedAmount) {
       if (p.ids.length !== 1) throw new Error("Lo que te devuelven se pone de a un movimiento");
@@ -79,7 +82,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
       .update({
         status: "identificado",
         scope: p.scope,
-        category_id: p.categoryId,
+        category_id: categoryId,
         pocket_id: p.pocketId,
         identified_by: user.id,
         identified_at: new Date().toISOString(),
@@ -97,7 +100,7 @@ export async function classifyTransactions(input: z.input<typeof classifySchema>
       const patterns = [...new Set((txs ?? []).map((t) => t.merchant && rulePatternFor(t.merchant)).filter(Boolean))];
       for (const pattern of patterns) {
         await supabase.from("rules").upsert(
-          { household_id: me.household_id, pattern, scope: p.scope, category_id: p.categoryId, kind: "gasto" },
+          { household_id: me.household_id, pattern, scope: p.scope, category_id: categoryId, kind: "gasto" },
           { onConflict: "household_id,pattern" },
         );
       }
@@ -202,6 +205,7 @@ const manualSchema = z.object({
   rawText: z.string().max(300).optional(),
   pocketId: uuid.nullable().default(null),
   reimbursedAmount: pesos.default(0), // pagaste por otros: lo que te devuelven
+  notes: z.string().trim().max(500).default(""), // en lo personal: en qué se gastó
 });
 
 export async function createManualTransaction(input: z.input<typeof manualSchema>): Promise<ActionResult> {
@@ -209,7 +213,8 @@ export async function createManualTransaction(input: z.input<typeof manualSchema
     const p = manualSchema.parse(input);
     const { supabase, me, members } = await getHousehold();
     if (!members.some((m) => m.id === p.paidBy)) throw new Error("Miembro inválido");
-    const complete = p.scope !== null && (p.categoryId !== null || p.kind === "ingreso");
+    const categoryId = p.scope === "personal" && p.kind === "gasto" ? null : p.categoryId;
+    const complete = isComplete({ kind: p.kind, scope: p.scope, category_id: categoryId });
     if (p.reimbursedAmount && (p.kind !== "gasto" || p.reimbursedAmount >= p.amount)) {
       throw new Error("Lo que te devuelven debe ser menor que el valor pagado");
     }
@@ -223,7 +228,8 @@ export async function createManualTransaction(input: z.input<typeof manualSchema
       raw_description: p.rawText ?? null,
       kind: p.kind,
       scope: p.scope,
-      category_id: p.categoryId,
+      category_id: categoryId,
+      notes: p.notes || null,
       account_id: p.accountId,
       paid_by_member_id: p.paidBy,
       source: "manual",
@@ -1046,7 +1052,7 @@ export async function setTransactionIgnored(id: string, ignored: boolean): Promi
       .eq("id", txId)
       .single<{ kind: string; scope: string | null; category_id: string | null }>();
     if (!tx) throw new Error("Movimiento no encontrado");
-    const complete = !(tx.kind === "gasto" || tx.kind === "ingreso") || (tx.scope && (tx.category_id || tx.kind === "ingreso"));
+    const complete = isComplete(tx as { kind: TxKind; scope: TxScope | null; category_id: string | null });
     const status = ignored ? "ignorado" : complete ? "identificado" : "pendiente";
     const { error } = await supabase.from("transactions").update({ status }).eq("id", txId);
     if (error) throw new Error(error.message);

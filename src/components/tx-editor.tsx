@@ -169,6 +169,10 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
             ))}
           </div>
 
+          {scope === "personal" ? (
+            <p className="muted text-xs">Lo personal no lleva grupo ni categoría: escribe abajo en qué se gastó.</p>
+          ) : (
+          <>
           <p className="text-xs font-semibold">Grupo {kind === "ingreso" ? "(opcional)" : ""}</p>
           <div className="flex flex-wrap gap-2">
             {groups.map((c) => (
@@ -198,6 +202,8 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
                 ))}
               </div>
             </>
+          )}
+          </>
           )}
 
           {pocketChoices.length > 0 && (
@@ -259,8 +265,14 @@ export function TxEditor({ tx, backHref, members, accounts, categories, pockets 
           <input className="input" value={merchant} maxLength={120} placeholder="Ej: D1, arriendo…" onChange={(e) => setMerchant(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          Nota
-          <textarea className="input min-h-20" value={notes} maxLength={500} placeholder="Algo para recordar" onChange={(e) => setNotes(e.target.value)} />
+          {scope === "personal" && isSpend ? "¿En qué se gastó?" : "Nota"}
+          <textarea
+            className="input min-h-20"
+            value={notes}
+            maxLength={500}
+            placeholder={scope === "personal" && isSpend ? "Ej: almuerzo con amigos, ropa…" : "Algo para recordar"}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </label>
       </section>
 

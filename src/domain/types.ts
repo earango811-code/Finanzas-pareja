@@ -34,3 +34,14 @@ export interface Member {
 export function netIncome(m: Pick<Member, "monthly_income" | "income_deductions">): number {
   return Math.max(0, m.monthly_income - m.income_deductions);
 }
+
+/**
+ * ¿El movimiento ya tiene lo necesario para contar? Un gasto compartido necesita grupo; uno
+ * personal solo saber que es personal (lo personal no lleva categorías, solo una descripción);
+ * un ingreso no necesita grupo. Transferencias, pagos de tarjeta y liquidaciones siempre.
+ */
+export function isComplete(t: { kind: TxKind; scope: TxScope | null; category_id: string | null }): boolean {
+  if (t.kind !== "gasto" && t.kind !== "ingreso") return true;
+  if (!t.scope) return false;
+  return t.scope === "personal" || t.kind === "ingreso" || t.category_id !== null;
+}

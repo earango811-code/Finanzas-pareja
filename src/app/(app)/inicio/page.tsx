@@ -5,7 +5,9 @@ import { PageHeader } from "@/components/page-header";
 import { buildBudgetRows, rootCategoryId } from "@/domain/budget";
 import { defaultMonth, isValidMonth, shortDate } from "@/domain/dates";
 import { formatCOP, ownAmount } from "@/domain/money";
+import { personalAvailable } from "@/domain/month-close";
 import { computeSettlement } from "@/domain/split";
+import { PersonalAvailableCard } from "@/components/personal-available";
 import { netIncome } from "@/domain/types";
 import { TX_COLUMNS, type TransactionRow } from "@/lib/db-types";
 import { membersForMonth } from "@/lib/incomes";
@@ -44,7 +46,7 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
   for (const t of txs) {
     if (t.kind === "gasto") {
       expenses += t.amount;
-      const g = t.category_id ? rootCategoryId(t.category_id, byId) : "sin";
+      const g = t.category_id ? rootCategoryId(t.category_id, byId) : t.scope === "personal" ? "personal" : "sin";
       spentByGroup.set(g, (spentByGroup.get(g) ?? 0) + t.amount);
     } else if (t.kind === "ingreso") {
       const root = t.category_id ? byId.get(rootCategoryId(t.category_id, byId)) : undefined;
@@ -62,7 +64,7 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
     .map(([g, v]) => {
       const cat = byId.get(g);
       const vis = visualFor(cat ? g : null, allCategories);
-      return { key: g, label: cat?.name ?? "Sin grupo", value: v, color: vis.color, icon: vis.icon };
+      return { key: g, label: cat?.name ?? (g === "personal" ? "Personal" : "Sin grupo"), value: v, color: vis.color, icon: g === "personal" ? "👤" : vis.icon };
     })
     .sort((a, b) => (byId.get(a.key)?.sort_order ?? 999) - (byId.get(b.key)?.sort_order ?? 999));
 
@@ -76,6 +78,9 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
   const usedRatio = budgeted > 0 ? spentBudget / budgeted : 0;
 
   const settlement = computeSettlement(incomeMembers, txs);
+  // Disponible para mí: reserva mi parte del presupuesto compartido de gasto (sin ahorro)
+  const plannedShared = rows.reduce((a, r) => a + Math.max(r.budgeted, r.spent), 0);
+  const mine = personalAvailable(incomeMembers, txs, plannedShared).find((p) => p.memberId === me.id);
   const maxBar = Math.max(income, expenses, 1);
   const recent = recentRes.data ?? [];
 
@@ -95,6 +100,8 @@ export default async function InicioPage({ searchParams }: { searchParams: Promi
             <span className="muted">›</span>
           </Link>
         )}
+
+        {mine && <PersonalAvailableCard data={mine} title="Disponible para mí" href={`/presupuesto?mes=${month}&vista=${me.id}`} />}
 
         {/* Queda para gastar */}
         <Link href="/presupuesto" className="card block p-4">

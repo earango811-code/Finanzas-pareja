@@ -1,5 +1,5 @@
 // Reglas al editar un movimiento ya registrado (desde el detalle del movimiento).
-import type { TxKind, TxScope, TxStatus } from "@/domain/types";
+import { isComplete, type TxKind, type TxScope, type TxStatus } from "@/domain/types";
 
 export interface TxEdit {
   kind: TxKind;
@@ -28,7 +28,8 @@ export function normalizeTxEdit(
   const value: TxEdit = {
     ...e,
     scope: isSpend ? e.scope : null,
-    categoryId: isSpend ? e.categoryId : null,
+    // Lo personal no lleva categoría: solo una descripción (en la nota)
+    categoryId: isSpend && e.scope !== "personal" ? e.categoryId : null,
     pocketId: isSpend ? e.pocketId : null,
     counterpartyId: e.kind === "liquidacion" ? e.counterpartyId : null,
     budgetMonth: e.budgetMonth && e.budgetMonth !== e.date.slice(0, 7) ? e.budgetMonth : null,
@@ -42,6 +43,6 @@ export function normalizeTxEdit(
   let status: TxStatus;
   if (currentStatus === "ignorado") status = "ignorado";
   else if (!isSpend) status = "identificado";
-  else status = value.scope && (value.categoryId || e.kind === "ingreso") ? "identificado" : "pendiente";
+  else status = isComplete({ kind: e.kind, scope: value.scope, category_id: value.categoryId }) ? "identificado" : "pendiente";
   return { value, status };
 }

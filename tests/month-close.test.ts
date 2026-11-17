@@ -132,3 +132,22 @@ describe("pagué por otros (me devuelven)", () => {
     expect(r.matched.map((m) => m.tx.id)).toEqual(["cena"]);
   });
 });
+
+describe("disponible para mí", () => {
+  it("ingreso − mi parte de lo compartido − mis gastos personales (60/40)", async () => {
+    const { personalAvailable } = await import("@/domain/month-close");
+    const members = [
+      { id: "esteban", display_name: "Esteban", monthly_income: 6_000_000, income_deductions: 0 },
+      { id: "mariana", display_name: "Mariana", monthly_income: 4_000_000, income_deductions: 0 },
+    ];
+    const tx = (amount: number, scope: "compartido" | "personal", paid: string) =>
+      ({ amount, kind: "gasto" as const, scope, status: "identificado" as const, paid_by_member_id: paid });
+    // Presupuesto compartido de 5 millones; van gastados 1 millón compartido y 300 mil personales de Esteban
+    const r = personalAvailable(members, [tx(1_000_000, "compartido", "mariana"), tx(300_000, "personal", "esteban")], 5_000_000);
+    expect(r[0]).toMatchObject({ income: 6_000_000, sharedNow: 600_000, sharedPlanned: 3_000_000, personalSpent: 300_000, availableNow: 5_100_000, available: 2_700_000 });
+    expect(r[1]).toMatchObject({ sharedPlanned: 2_000_000, available: 2_000_000 });
+    // Si lo compartido ya se pasó del presupuesto, se reserva lo gastado
+    const over = personalAvailable(members, [tx(6_000_000, "compartido", "mariana")], 5_000_000);
+    expect(over[0].sharedPlanned).toBe(3_600_000);
+  });
+});

@@ -1,7 +1,7 @@
 // Decide cómo entra al sistema un movimiento leído de una alerta.
 import type { ParsedMovement } from "./parsers/bancolombia-email";
 import { matchRule, type Rule } from "./rules";
-import type { AccountType, TxKind, TxScope, TxStatus } from "./types";
+import { isComplete, type AccountType, type TxKind, type TxScope, type TxStatus } from "./types";
 
 export interface IngestAccount {
   id: string;
@@ -96,7 +96,7 @@ export function classifyIncoming(
 ): Classification {
   const rec = matchRecurring(recurring, m, memberId);
   if (rec) {
-    const complete = rec.scope !== null && (rec.category_id !== null || rec.kind === "ingreso");
+    const complete = isComplete({ kind: rec.kind, scope: rec.scope, category_id: rec.category_id });
     return {
       status: complete ? "identificado" : "pendiente",
       scope: rec.scope,
@@ -111,7 +111,7 @@ export function classifyIncoming(
   if (rule) {
     const kind = rule.kind ?? m.kind;
     const isNonExpense = kind === "transferencia_interna" || kind === "pago_tarjeta";
-    const complete = isNonExpense || (rule.scope !== null && (rule.category_id !== null || kind === "ingreso"));
+    const complete = isNonExpense || isComplete({ kind, scope: rule.scope, category_id: rule.category_id });
     // Una regla de gasto no convierte un ingreso (ej. una devolución del mismo comercio) en gasto.
     if (complete && !(m.kind === "ingreso" && kind === "gasto")) {
       return {

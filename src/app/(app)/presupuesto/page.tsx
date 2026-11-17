@@ -8,6 +8,8 @@ import { BUDGET_GROUP_LABEL, netIncome } from "@/domain/types";
 import type { TransactionRow } from "@/lib/db-types";
 import { membersForMonth } from "@/lib/incomes";
 import { getHousehold, memberName } from "@/lib/household";
+import { PersonalAvailableCard } from "@/components/personal-available";
+import { personalAvailable } from "@/domain/month-close";
 import { loadMonth } from "@/lib/month-data";
 import { visualFor } from "@/lib/visual";
 
@@ -61,15 +63,14 @@ export default async function PresupuestoPage({
     // Movimiento por movimiento de cada grupo (al tocar el grupo)
     ctx.supabase
       .from("transactions")
-      .select("id, occurred_on, amount, reimbursed_amount, kind, merchant, category_id, scope, paid_by_member_id, pocket_id")
+      .select("id, occurred_on, amount, reimbursed_amount, kind, merchant, notes, category_id, scope, paid_by_member_id, pocket_id")
       .eq("household_id", me.household_id)
       .eq("status", "identificado")
       .eq("month", month)
       .in("kind", ["gasto", "ingreso"])
-      .not("category_id", "is", null)
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false })
-      .returns<Pick<TransactionRow, "id" | "occurred_on" | "amount" | "reimbursed_amount" | "kind" | "merchant" | "category_id" | "scope" | "paid_by_member_id" | "pocket_id">[]>(),
+      .returns<Pick<TransactionRow, "id" | "occurred_on" | "amount" | "reimbursed_amount" | "kind" | "merchant" | "notes" | "category_id" | "scope" | "paid_by_member_id" | "pocket_id">[]>(),
   ]);
   const pocketName = new Map((pocketData ?? []).map((p) => [p.id, p.name]));
 
@@ -128,6 +129,22 @@ export default async function PresupuestoPage({
     txsByGroup.set(root, [...(txsByGroup.get(root) ?? []), t]);
   }
   const back = encodeURIComponent(`/presupuesto?mes=${month}&vista=${view}&tab=restante`);
+
+  // Vista personal: disponible para esa persona y sus gastos personales (sin categorías)
+  const sharedSpendRows = buildBudgetRows({
+    lines: budgets,
+    categories,
+    txs,
+    incomeBase: incomeMembers.reduce((a, m) => a + netIncome(m), 0),
+    memberId: null,
+  }).filter((r) => r.group !== "ahorro");
+  const personal =
+    memberId === null
+      ? null
+      : personalAvailable(incomeMembers, txs, sharedSpendRows.reduce((a, r) => a + Math.max(r.budgeted, r.spent), 0)).find(
+          (p) => p.memberId === memberId,
+        ) ?? null;
+  const personalTxs = (detailData ?? []).filter((t) => t.scope === "personal" && t.paid_by_member_id === memberId);
   const txList = (groupId: string) => {
     const list = txsByGroup.get(groupId) ?? [];
     const subs = (breakdown.get(groupId) ?? []).sort((a, b) => b.amount - a.amount);
@@ -205,11 +222,13 @@ export default async function PresupuestoPage({
           ))}
         </div>
 
+        {memberId === null && (
         <nav className="segmented" aria-label="Vista del presupuesto">
           <Link href={q("restante")} data-active={tab === "restante"}>Restante</Link>
           <Link href={q("plan")} data-active={tab === "plan"}>Plan</Link>
           <Link href={q("analisis")} data-active={tab === "analisis"}>Análisis</Link>
         </nav>
+        )}
 
         {household.start_month && month < household.start_month && (
           <Link href={`/presupuesto?mes=${household.start_month}`} className="card block border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
@@ -223,7 +242,39 @@ export default async function PresupuestoPage({
           </Link>
         )}
 
-        {tab === "restante" && (
+        {personal && (
+          <>
+            <PersonalAvailableCard data={personal} title={memberId === me.id ? "Disponible para mí" : `Disponible para ${members.find((m) => m.id === memberId)!.display_name}`} />
+            <section className="card overflow-hidden">
+              <h2 className="px-4 pt-4 font-semibold">Gastos personales del mes</h2>
+              {personalTxs.length === 0 ? (
+                <p className="muted px-4 py-4 text-sm">Todavía no hay gastos personales este mes.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-[var(--line)]">
+                  {personalTxs.map((t) => (
+                    <li key={t.id}>
+                      <Link href={`/movimientos/${t.id}?volver=${back}`} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{t.notes || t.merchant || "Gasto personal"}</span>
+                          <span className="muted block truncate text-xs">
+                            {shortDate(t.occurred_on)}
+                            {t.notes && t.merchant ? ` · ${t.merchant}` : ""}
+                          </span>
+                        </span>
+                        <span className={`tabular shrink-0 font-medium ${t.kind === "ingreso" ? "text-emerald-600" : ""}`}>
+                          {t.kind === "ingreso" ? "+" : ""}
+                          {formatCOP(ownAmount(t))}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+
+        {memberId === null && tab === "restante" && (
           <>
           <ul className="card overflow-hidden">
             {ordered.filter((r) => r.group !== "ahorro").map((r) => {
@@ -287,7 +338,7 @@ export default async function PresupuestoPage({
           </>
         )}
 
-        {tab === "plan" && (
+        {memberId === null && tab === "plan" && (
           <>
             <section className="card flex flex-col gap-2 p-4">
               <div className="flex items-baseline justify-between gap-2">
@@ -356,7 +407,7 @@ export default async function PresupuestoPage({
           </>
         )}
 
-        {tab === "analisis" && (
+        {memberId === null && tab === "analisis" && (
           <section className="card p-4">
             <h2 className="font-semibold">Regla 50/30/20</h2>
             <p className="muted mb-3 text-xs">Sobre un ingreso de {formatCOP(incomeBase)}</p>
@@ -399,7 +450,7 @@ export default async function PresupuestoPage({
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-20 px-3">
         <div className="card pointer-events-auto mx-auto flex max-w-md items-center gap-3 px-4 py-2.5">
           <div className="min-w-0 flex-1">
-            <p className="muted truncate text-xs">{viewLabel}</p>
+            <p className="muted truncate text-xs">{personal ? (memberId === me.id ? "Disponible para mí" : `Disponible para ${members.find((m) => m.id === memberId)!.display_name}`) : viewLabel}</p>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--line)]">
               <div
                 className={`h-full rounded-full ${usedRatio >= 1 ? "bg-red-500" : usedRatio >= 0.8 ? "bg-amber-500" : "bg-[var(--color-brand)]"}`}
@@ -407,7 +458,9 @@ export default async function PresupuestoPage({
               />
             </div>
           </div>
-          <p className={`tabular shrink-0 text-xl font-bold ${available < 0 ? "text-red-600" : "text-[var(--color-brand)]"}`}>{formatCOP(available)}</p>
+          <p className={`tabular shrink-0 text-xl font-bold ${(personal ? personal.available : available) < 0 ? "text-red-600" : "text-[var(--color-brand)]"}`}>
+            {formatCOP(personal ? personal.available : available)}
+          </p>
         </div>
       </div>
     </>

@@ -52,3 +52,15 @@ describe("normalizeTxEdit", () => {
     expect(normalizeTxEdit({ ...base, scope: null, pocketId: "p" }, "pendiente")).toHaveProperty("error");
   });
 });
+
+describe("lo personal no lleva categoría", () => {
+  it("un gasto personal queda identificado sin categoría y se le quita la que tuviera", () => {
+    expect(normalizeTxEdit({ ...base, scope: "personal", categoryId: "cat" }, "pendiente")).toMatchObject({
+      status: "identificado",
+      value: { categoryId: null },
+    });
+  });
+  it("uno compartido sí necesita grupo", () => {
+    expect(normalizeTxEdit({ ...base, scope: "compartido", categoryId: null }, "pendiente")).toMatchObject({ status: "pendiente" });
+  });
+});

@@ -41,6 +41,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
   const [date, setDate] = useState(today);
   const [pocketId, setPocketId] = useState("");
   const [reimbursed, setReimbursed] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, start] = useTransition();
 
@@ -92,6 +93,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
         rawText: text || undefined,
         pocketId: kind === "gasto" && pocketChoices.some((p) => p.id === pocketId) ? pocketId : null,
         reimbursedAmount: kind === "gasto" ? (reimbursed ?? 0) : 0,
+        notes,
       });
       if (!r.ok) return setMsg({ text: r.error, error: true });
       setMsg({ text: r.message ?? "Registrado" });
@@ -102,6 +104,7 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
       setScope(null);
       setPocketId("");
       setReimbursed(null);
+      setNotes("");
       setDate(today);
       router.refresh();
     });
@@ -144,6 +147,11 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
           ))}
         </div>
 
+        {scope === "personal" ? (
+          // Lo personal no lleva categorías: solo en qué se gastó
+          <input className="input" placeholder="¿En qué se gastó?" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        ) : (
+        <>
         <div className="flex flex-wrap gap-2">
           {parentOptions.map((c) => (
             <button
@@ -169,6 +177,8 @@ export function QuickEntryForm({ today, meId, members, accounts, categories, poc
               </button>
             ))}
           </div>
+        )}
+        </>
         )}
 
         {kind === "gasto" && pocketChoices.length > 0 && (

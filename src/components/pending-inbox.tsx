@@ -165,10 +165,10 @@ export function PendingInbox({
               </p>
             </button>
 
-            {s && !selecting && (s.categoryId || s.kind) && (
+            {s && !selecting && (s.categoryId || s.kind || s.scope === "personal") && (
               <div className="flex items-center gap-2 border-t border-[var(--line)] bg-[var(--bg)] px-4 py-2 text-sm">
                 <span className="muted flex-1 truncate">
-                  Sugerido ({s.source}): <b>{s.categoryId ? catName.get(s.categoryId) : s.kind}</b>
+                  Sugerido ({s.source}): <b>{s.categoryId ? catName.get(s.categoryId) : s.scope === "personal" ? "Personal" : s.kind}</b>
                   {s.scope && ` · ${s.scope}`}
                 </span>
                 <button
@@ -176,7 +176,9 @@ export function PendingInbox({
                   disabled={pending}
                   onClick={() =>
                     run(() =>
-                      s.categoryId && s.scope
+                      s.scope === "personal"
+                        ? classifyTransactions({ ids: [c.id], scope: "personal", categoryId: null })
+                        : s.categoryId && s.scope
                         ? classifyTransactions({ ids: [c.id], scope: s.scope, categoryId: s.categoryId })
                         : s.kind === "transferencia_interna" || s.kind === "pago_tarjeta"
                           ? markAsTransfer({ ids: [c.id], kind: s.kind })
@@ -269,7 +271,7 @@ function Classifier({
   kind: TxKind;
   pockets: PocketOption[];
   payerIds: string[];
-  onClassify: (scope: TxScope, categoryId: string, remember: boolean, pocketId: string | null, notes?: string, reimbursedAmount?: number) => void;
+  onClassify: (scope: TxScope, categoryId: string | null, remember: boolean, pocketId: string | null, notes?: string, reimbursedAmount?: number) => void;
   onTransfer: (kind: "transferencia_interna" | "pago_tarjeta", notes?: string) => void;
   onIgnore: () => void;
 }) {
@@ -296,7 +298,9 @@ function Classifier({
     <div className="flex flex-col gap-3 border-t border-[var(--line)] p-4">
       {withNotes && (
         <label className="flex flex-col gap-1 text-xs">
-          <span className="muted">Notas adicionales (opcional)</span>
+          <span className={scope === "personal" && kind !== "ingreso" ? "font-semibold" : "muted"}>
+            {scope === "personal" && kind !== "ingreso" ? "¿En qué se gastó?" : "Notas adicionales (opcional)"}
+          </span>
           <textarea
             className="input min-h-16 text-sm"
             placeholder="Ej: regalo de cumpleaños de la mamá"
@@ -319,7 +323,31 @@ function Classifier({
         ))}
       </div>
 
-      {scope && (
+      {scope === "personal" && kind !== "ingreso" ? (
+        // Lo personal no lleva categorías: solo la descripción de arriba
+        <>
+          {pocketOptions.length > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="muted shrink-0">🐷 Pagado desde</span>
+              <select className="input !py-1.5 text-sm" value={chosenPocket} onChange={(e) => setPocketId(e.target.value)}>
+                <option value="">— mi plata del mes —</option>
+                {pocketOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Bolsillo {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button className="btn btn-primary" disabled={busy} onClick={() => onClassify("personal", null, remember, chosenPocket || null, noteArg, reimbArg)}>
+            ✓ Guardar como gasto personal
+          </button>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4" />
+            Este comercio siempre es personal
+          </label>
+        </>
+      ) : scope && (
         <>
           {pocketOptions.length > 0 && kind !== "ingreso" && (
             <label className="flex items-center gap-2 text-sm">

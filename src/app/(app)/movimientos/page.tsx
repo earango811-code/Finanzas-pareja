@@ -74,7 +74,14 @@ export default async function MovimientosPage({ searchParams }: { searchParams: 
           {txs.map((t) => {
             const hasCategory = t.kind === "gasto" || (t.kind === "ingreso" && !!t.category_id);
             // Título: la categoría (o el tipo); el comercio queda como detalle
-            const title = hasCategory ? (t.category_id ? catById.get(t.category_id)?.name ?? "Sin categoría" : "Sin categoría") : KIND_LABEL[t.kind];
+            const title =
+              t.scope === "personal" && !t.category_id
+                ? t.notes || t.merchant || "Gasto personal"
+                : hasCategory
+                  ? t.category_id
+                    ? catById.get(t.category_id)?.name ?? "Sin categoría"
+                    : "Sin categoría"
+                  : KIND_LABEL[t.kind];
             const group = t.category_id ? catById.get(catById.get(t.category_id)?.parent_id ?? "")?.name : undefined;
             const label = [group, t.scope === "compartido" ? "🏠 compartido" : t.scope === "personal" ? "👤 personal" : null, t.merchant]
               .filter(Boolean)

@@ -1292,3 +1292,16 @@ select m.household_id, m.id, 'Efectivo ' || m.display_name, 'efectivo'
   from public.members m
  where not exists (select 1 from public.accounts a where a.owner_member_id = m.id and a.type = 'efectivo');
 update public.accounts set is_active = true where type = 'efectivo';
+
+-- ============================================================
+-- 20261117000014_personal_sin_categoria.sql
+-- ============================================================
+
+-- Lo personal no lleva categorías: un gasto personal queda identificado con solo saber que es
+-- personal (la descripción va en la nota). Lo compartido sigue necesitando grupo.
+alter table public.transactions drop constraint if exists identified_complete;
+alter table public.transactions add constraint identified_complete check (
+  status <> 'identificado'
+  or kind not in ('gasto', 'ingreso')
+  or (scope is not null and (category_id is not null or kind = 'ingreso' or scope = 'personal'))
+);
