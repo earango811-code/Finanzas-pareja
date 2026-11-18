@@ -144,8 +144,8 @@ describe("disponible para mí", () => {
       ({ amount, kind: "gasto" as const, scope, status: "identificado" as const, paid_by_member_id: paid });
     // Presupuesto compartido de 5 millones; van gastados 1 millón compartido y 300 mil personales de Esteban
     const r = personalAvailable(members, [tx(1_000_000, "compartido", "mariana"), tx(300_000, "personal", "esteban")], 5_000_000);
-    expect(r[0]).toMatchObject({ income: 6_000_000, sharedNow: 600_000, sharedPlanned: 3_000_000, personalSpent: 300_000, availableNow: 5_100_000, available: 2_700_000 });
-    expect(r[1]).toMatchObject({ sharedPlanned: 2_000_000, available: 2_000_000 });
+    expect(r[0]).toMatchObject({ income: 6_000_000, sharedNow: 600_000, sharedPlanned: 3_000_000, personalSpent: 300_000, available: 5_100_000, availableIfBudgetSpent: 2_700_000 });
+    expect(r[1]).toMatchObject({ sharedNow: 400_000, available: 3_600_000, availableIfBudgetSpent: 2_000_000 });
     // Si lo compartido ya se pasó del presupuesto, se reserva lo gastado
     const over = personalAvailable(members, [tx(6_000_000, "compartido", "mariana")], 5_000_000);
     expect(over[0].sharedPlanned).toBe(3_600_000);

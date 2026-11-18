@@ -79,16 +79,16 @@ export interface PersonalAvailable {
   sharedNow: number; // su parte de lo compartido gastado hasta hoy
   sharedPlanned: number; // su parte del presupuesto compartido (o de lo gastado, si ya se pasaron)
   personalSpent: number; // sus gastos personales del mes
-  availableNow: number; // income − sharedNow − personalSpent
-  available: number; // income − sharedPlanned − personalSpent: lo que de verdad tiene para él/ella
+  available: number; // income − sharedNow − personalSpent: lo disponible hoy, con lo realmente gastado
+  availableIfBudgetSpent: number; // income − sharedPlanned − personalSpent: si se gasta todo el presupuesto compartido
 }
 
 /**
- * "Disponible para mí": el ingreso de cada uno menos su porción de los gastos compartidos
- * (con el % del reparto) y menos lo que ya gastó en lo personal. Para no gastarse hoy lo que
- * después toca poner en lo compartido, se reserva su parte del presupuesto compartido completo
- * (o de lo gastado, si ya se pasaron). `sharedPlannedTotal` = Σ por grupo de gasto compartido
- * de max(presupuesto, gastado); los grupos de ahorro no entran.
+ * "Disponible para mí": el ingreso de cada uno menos su porción (con el % del reparto) de lo que
+ * de verdad se ha gastado en lo compartido, y menos lo que ya gastó en lo personal.
+ * Como referencia, `availableIfBudgetSpent` dice cuánto le quedaría si se gasta todo el
+ * presupuesto compartido: `sharedPlannedTotal` = Σ por grupo de gasto compartido de
+ * max(presupuesto, gastado); los grupos de ahorro no entran.
  */
 export function personalAvailable(members: Member[], txs: CloseTx[], sharedPlannedTotal: number): PersonalAvailable[] {
   const close = computeMonthClose(members, txs, 0);
@@ -100,7 +100,7 @@ export function personalAvailable(members: Member[], txs: CloseTx[], sharedPlann
     sharedNow: m.sharedSpent,
     sharedPlanned: planned[i],
     personalSpent: m.personalSpent,
-    availableNow: m.available - m.sharedSpent - m.personalSpent,
-    available: m.available - planned[i] - m.personalSpent,
+    available: m.available - m.sharedSpent - m.personalSpent,
+    availableIfBudgetSpent: m.available - planned[i] - m.personalSpent,
   }));
 }
