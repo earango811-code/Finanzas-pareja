@@ -134,4 +134,40 @@ describe("parser de alertas Bancolombia", () => {
       occurredAt: "2026-10-23T09:22:13-05:00",
     });
   });
+
+  describe("formatos nuevos (nov-2026)", () => {
+    const parse = (t: string, at?: string) => {
+      const r = parseBancolombiaEmail(`Bancolombia: ${t} Si tienes dudas, llámanos`, at);
+      if (!r.ok) throw new Error(`${r.reason}: ${r.text}`);
+      return r.movement;
+    };
+
+    it("pago con código QR", () => {
+      expect(parse("NOMBRE FICTICIO pagaste $7,700.00 por codigo QR desde tu cuenta *1111 a la llave @***2051 el 18/11/2026 a las 13:34. Con codigo QR es facil y de una.")).toMatchObject({
+        type: "pago_qr", kind: "gasto", amount: 7700, merchant: "Pago QR a @***2051", account: { last4: "1111" }, date: "2026-11-18",
+      });
+    });
+
+    it("pago con Botón Bancolombia (PSE)", () => {
+      expect(parse("Transferiste $379,572.00 por Boton Bancolombia a EMPRESA FICTICIA SAS desde producto *1111. 19/11/2026 16:39:35")).toMatchObject({
+        type: "pago_pse", kind: "gasto", amount: 379572, merchant: "EMPRESA FICTICIA SAS", account: { last4: "1111" }, date: "2026-11-19", occurredAt: "2026-11-19T16:39:35-05:00",
+      });
+    });
+
+    it("consignación recibida y pago recibido (ingresos: luego no se traen)", () => {
+      expect(parse("Recibiste una consignacion por $700,000 desde el corresponsal TIENDA FICTICIA en CALI, el 03/11/26 09:29.")).toMatchObject({ kind: "ingreso", amount: 700000, date: "2026-11-03" });
+      expect(parse("Recibiste un pago por $3,220,000.00 de EMPRESA FICTICIA a tu cuenta AHORROS, el 19:16 a las 17/11/2026.")).toMatchObject({ kind: "ingreso", amount: 3220000, date: "2026-11-17", occurredAt: "2026-11-17T19:16:00-05:00" });
+    });
+
+    it("abono automático a la tarjeta: pago de tarjeta con la fecha del correo", () => {
+      expect(parse("Debitamos de tu cuenta/bolsillo $31,140.34 para abonar a la deuda en en Dólares. de tu tarjeta de credito AMEX **1111. Encontraras el abono el proximo dia habil.", "2026-11-19T14:12:00Z")).toMatchObject({
+        type: "abono_tarjeta", kind: "pago_tarjeta", amount: 31140, account: { type: "credito", last4: "1111" }, date: "2026-11-19",
+      });
+    });
+
+    it("compra rechazada: no es un movimiento", () => {
+      const r = parseBancolombiaEmail("Bancolombia: tu compra en TIENDA por COP628.546,00 no fue exitosa, el cupo de tu T.Credito *1111 no se afecto. 10:58.01/11/2026.");
+      expect(r).toMatchObject({ ok: false, reason: "no_transaccional" });
+    });
+  });
 });

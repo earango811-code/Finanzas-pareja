@@ -103,11 +103,21 @@ export async function POST(req: NextRequest) {
       results.push({ id: msg.id, status: "error" });
       continue;
     }
-    if (!logRows?.length) {
-      results.push({ id: msg.id, status: "duplicado" });
-      continue;
+    let logId = logRows?.[0]?.id as string | undefined;
+    if (!logId) {
+      // Ya estaba: solo se vuelve a procesar si antes no se entendió o falló (ej. un formato nuevo)
+      const { data: prev } = await db
+        .from("ingest_log")
+        .select("id, status")
+        .eq("member_id", memberId)
+        .eq("message_id", msg.id)
+        .maybeSingle<{ id: string; status: string }>();
+      if (!prev || !["formato_desconocido", "error", "recibido"].includes(prev.status)) {
+        results.push({ id: msg.id, status: "duplicado" });
+        continue;
+      }
+      logId = prev.id;
     }
-    const logId = logRows[0].id as string;
     const finish = async (status: ItemStatus, text: string | null, transactionId: string | null = null) => {
       await db.from("ingest_log").update({ status, text, transaction_id: transactionId }).eq("id", logId);
       results.push({ id: msg.id, status });
@@ -118,7 +128,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const parsed = parseBancolombiaEmail(msg.body);
+    const parsed = parseBancolombiaEmail(msg.body, msg.date);
     if (!parsed.ok) {
       await finish(parsed.reason, parsed.text.slice(0, 500));
       continue;

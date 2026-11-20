@@ -12,6 +12,11 @@
 //   Pagaste $116600.00 a ENTIDAD desde tu producto 1234 el 01/10/2026 12:31:42.
 //   Recibiste una transferencia por $100,000 de REMITENTE en tu cuenta **1234, el 30/10/2026 a las 14:57.
 //   Retiraste $7,000,000.00 de tu cuenta de inversión *1234 del fondo ... Fiducuenta el 2026/10/23 a las 09:22:13.
+//   NOMBRE pagaste $7,700.00 por codigo QR desde tu cuenta *1234 a la llave @***2051 el 18/11/2026 a las 13:34.
+//   Transferiste $379,572.00 por Boton Bancolombia a EMPRESA desde producto *1234. 19/11/2026 16:39:35
+//   Recibiste una consignacion por $700,000 desde el corresponsal X en CIUDAD, el 03/11/26 09:29.
+//   Recibiste un pago por $3,220,000.00 de EMPRESA a tu cuenta AHORROS, el 19:16 a las 17/11/2026.
+//   Debitamos de tu cuenta/bolsillo $31,140.34 para abonar a la deuda en Dólares de tu tarjeta de credito AMEX **1234.
 // Formato SUPUESTO (sin correo real todavía): Retiraste $X en CAJERO de tu cuenta/T.Deb *1234 el dd/mm/aaaa a las hh:mm.
 import { parseBankDate } from "../dates";
 import { parsePesos } from "../money";
@@ -26,7 +31,11 @@ export type EmailMovementType =
   | "pago_recibido"
   | "pago_factura"
   | "retiro"
-  | "inversion";
+  | "inversion"
+  | "pago_qr"
+  | "pago_pse"
+  | "consignacion"
+  | "abono_tarjeta";
 
 export interface ParsedMovement {
   type: EmailMovementType;
@@ -145,6 +154,41 @@ const PATTERNS: Pattern[] = [
     }),
   },
   {
+    // NOMBRE pagaste $X por codigo QR desde tu cuenta *1234 a la llave @***2051 el dd/mm/aaaa a las hh:mm
+    type: "pago_qr",
+    kind: "gasto",
+    re: new RegExp(String.raw`pagaste ${AMOUNT} por c[oó]digo QR desde tu cuenta \*(\d{4}) a (?:la llave )?(\S+) el ${DATE} a las ${TIME}`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: `Pago QR a ${m[3]}`, acct: "debito", last4: m[2], date: m[4], time: m[5] }),
+  },
+  {
+    // Transferiste $X por Boton Bancolombia a EMPRESA desde producto *1234. dd/mm/aaaa hh:mm:ss (pago PSE)
+    type: "pago_pse",
+    kind: "gasto",
+    re: new RegExp(String.raw`Transferiste ${AMOUNT} por Bot[oó]n Bancolombia a (.+?) desde (?:tu )?(?:producto|cuenta) \*?(\d+)\.?,? (?:el )?${DATE}(?: a las)? ${TIME}`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: m[2], acct: "debito", last4: m[3].slice(-4), date: m[4], time: m[5] }),
+  },
+  {
+    // Recibiste una consignacion por $X desde el corresponsal X en CIUDAD, el dd/mm/aa hh:mm (ingreso: no se trae)
+    type: "consignacion",
+    kind: "ingreso",
+    re: new RegExp(String.raw`Recibiste una consignaci[oó]n por ${AMOUNT} desde (.+?),? el ${DATE}(?: a las)? ${TIME}`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: `Consignación ${m[2]}`, acct: "debito", last4: null, date: m[3], time: m[4] }),
+  },
+  {
+    // Recibiste un pago por $X de EMPRESA a tu cuenta AHORROS, el hh:mm a las dd/mm/aaaa (Bancolombia invierte hora y fecha)
+    type: "pago_recibido",
+    kind: "ingreso",
+    re: new RegExp(String.raw`Recibiste un pago por ${AMOUNT} de (.+?) a tu cuenta \w+,? el ${TIME} a las ${DATE}`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: m[2], acct: "debito", last4: null, date: m[4], time: m[3] }),
+  },
+  {
+    // Debitamos de tu cuenta/bolsillo $X para abonar a la deuda ... de tu tarjeta de credito AMEX **1234 (pago de tarjeta)
+    type: "abono_tarjeta",
+    kind: "pago_tarjeta",
+    re: new RegExp(String.raw`Debitamos de tu cuenta(?:\/bolsillo)? ${AMOUNT} para abonar a la deuda.*?tarjeta de cr[eé]dito (?:\w+ )?\*{1,2}(\d{4})`, "i"),
+    pick: (m) => ({ amount: m[1], merchant: `Abono a tarjeta *${m[2]}`, acct: "credito", last4: m[2], date: "", time: undefined }),
+  },
+  {
     // Recibiste un pago PROVEEDOR de EMPRESA por $X en tu cuenta de Ahorros el ...
     type: "pago_recibido",
     kind: "ingreso",
@@ -175,13 +219,22 @@ const NON_TRANSACTIONAL = [
   /ingresaste a/i,
   /actualizaste/i,
   /c[oó]digo de verificaci[oó]n/i,
+  /no fue exitosa/i, // compra rechazada: no hubo cargo
 ];
+
+/** ISO → { date: "dd/mm/aaaa", time: "hh:mm" } en hora de Bogotá. */
+function toBogotaDmy(iso: string): { date: string; time: string } | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const b = new Date(t - 5 * 3600 * 1000).toISOString(); // Bogotá es UTC−5 todo el año
+  return { date: `${b.slice(8, 10)}/${b.slice(5, 7)}/${b.slice(0, 4)}`, time: b.slice(11, 16) };
+}
 
 function cleanMerchant(s: string): string {
   return s.replace(/\s+/g, " ").replace(/[.,]\s*$/, "").trim();
 }
 
-export function parseBancolombiaEmail(body: string): ParseResult {
+export function parseBancolombiaEmail(body: string, receivedAt?: string): ParseResult {
   const text = emailToText(body);
   const sentence = extractAlertSentence(text) ?? text;
   const safe = redactSensitive(sentence);
@@ -191,7 +244,9 @@ export function parseBancolombiaEmail(body: string): ParseResult {
     if (!m) continue;
     const f = p.pick(m);
     const amount = parsePesos(f.amount);
-    const d = parseBankDate(f.date, f.time);
+    // Algunas alertas no traen la fecha en la frase: se usa la del correo (hora de Bogotá)
+    const fallback = !f.date && receivedAt ? toBogotaDmy(receivedAt) : null;
+    const d = parseBankDate(f.date || fallback?.date || "", f.time ?? fallback?.time);
     if (amount === null || amount <= 0 || !d) continue;
     return {
       ok: true,
